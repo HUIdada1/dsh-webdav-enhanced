@@ -67,7 +67,7 @@ export class WebDavSyncStore implements SyncStore {
 // ---------- 便捷封装：upsert + 条件写 + 冲突重试 ----------
 
 export interface PushEntryInput {
-  entry: Omit<RemoteEntry, 'firstSeenAt' | 'updatedAt' | 'file'>
+  entry: Omit<RemoteEntry, 'firstSeenAt' | 'updatedAt' | 'file' | 'deleted'>
   /** 本地 zip 绝对路径 */
   zipPath: string
   machineId: string
@@ -99,7 +99,7 @@ export async function pushEntry(
   const res = await withManifestLock(
     store,
     input.machineId,
-    (m) => ({ manifest: upsertEntry(m, { ...input.entry, file }, now), result: null }),
+    (m) => ({ manifest: upsertEntry(m, { ...input.entry, file, deleted: false }, now), result: null }),
   )
   return { etag: res.etag, uploaded: true }
 }
