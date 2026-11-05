@@ -1,0 +1,6 @@
+node_modules/
+lib/
+*.log
+.DS_Store
+.box-agent/
+.box-agent-scratch/

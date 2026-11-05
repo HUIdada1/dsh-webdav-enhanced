@@ -1,0 +1,48 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mE:/idea work/dsh-webdav-enhanced[39m
+
+ [32m✓[39m tests/manifest.test.ts [2m([22m[2m6 tests[22m[2m)[22m[90m 5[2mms[22m[39m
+[90mstdout[2m | tests/dbg.test.ts[2m > [22m[2mdbg[2m > [22m[2minspect zip entries
+[22m[39mentry: {"p":"_meta.json","t":"File","s":303}
+entry: {"p":"a.txt","t":"File","s":5}
+entry: {"p":"sub/","t":"Directory","s":0}
+entry: {"p":"sub/b.md","t":"File","s":5}
+
+ [32m✓[39m tests/dbg.test.ts [2m([22m[2m1 test[22m[2m)[22m[90m 58[2mms[22m[39m
+[90mstdout[2m | tests/dbg.test.ts[2m > [22m[2mdbg[2m > [22m[2minspect zip entries
+[22m[39mmeta: my-skill
+dest list: [ [32m'F:a.txt'[39m, [32m'D:sub'[39m ]
+exists a.txt: [33mtrue[39m
+exists sub/b.md: [33mtrue[39m
+DBG root = C:\Users\HUIDADA\AppData\Local\Temp\dbg-OgH5ZQ
+
+ [32m✓[39m tests/pack.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 158[2mms[22m[39m
+(node:46312) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ [31m❯[39m tests/env.test.ts [2m([22m[2m6 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 772[2mms[22m[39m
+[31m   [31m×[31m resolveEnv[2m > [22mreturns unknown when overrideDir does not exist[90m 229[2mms[22m[31m[39m
+[31m     → expected 'cordis' to be 'unknown' // Object.is equality[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[1m[7m Failed Tests 1 [27m[22m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/env.test.ts[2m > [22mresolveEnv[2m > [22mreturns unknown when overrideDir does not exist
+[31m[1mAssertionError[22m: expected 'cordis' to be 'unknown' // Object.is equality[39m
+
+Expected: [32m"unknown"[39m
+Received: [31m"cordis"[39m
+
+[36m [2m❯[22m tests/env.test.ts:[2m76:28[22m[39m
+    [90m 74| [39m  [34mit[39m([32m'returns unknown when overrideDir does not exist'[39m[33m,[39m [35masync[39m () [33m=>[39m {
+    [90m 75| [39m    [35mconst[39m env [33m=[39m [35mawait[39m [34mresolveEnv[39m({ overrideDir[33m:[39m path[33m.[39m[34mjoin[39m(root[33m,[39m [32m'nowhe[39m…
+    [90m 76| [39m    [34mexpect[39m(env[33m.[39mgeneration)[33m.[39m[34mtoBe[39m([32m'unknown'[39m)
+    [90m   | [39m                           [31m^[39m
+    [90m 77| [39m    [34mexpect[39m(env[33m.[39mdshHome)[33m.[39m[34mtoBe[39m([32m''[39m)
+    [90m 78| [39m  })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m15 passed[39m[22m[90m (16)[39m
+[2m   Start at [22m 17:38:50
+[2m   Duration [22m 1.30s[2m (transform 123ms, setup 0ms, collect 612ms, tests 993ms, environment 1ms, prepare 617ms)[22m
+

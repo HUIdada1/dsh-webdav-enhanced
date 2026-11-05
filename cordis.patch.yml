@@ -1,0 +1,3 @@
+- insert:
+    - id: webdav-sync
+      name: dsh-webdav-sync
