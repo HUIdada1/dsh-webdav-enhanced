@@ -136,6 +136,9 @@ export interface WebDavClient {
   deleteFile(remotePath: string): Promise<void>
   move(remotePath: string, destPath: string): Promise<void>
   stat(remotePath: string): Promise<{ etag: string | null; size: number; mtime: string | null } | null>
+  /** 尽力而为的软锁；服务端不支持时返回 null 并降级 */
+  acquireLock(machineId: string, ttlMs: number): Promise<LockHandle | null>
+  currentLockHolder(): Promise<{ machineId: string; startedAt: string; expiresAt: string } | null>
 }
 
 // ---------- M3 pack ----------
