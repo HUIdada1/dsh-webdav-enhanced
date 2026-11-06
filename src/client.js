@@ -3,7 +3,7 @@
  * 挂载点：插件 → 已安装插件 → dsh-webdav-enhanced（plugins.bundle.config slot）。
  * 布局：左侧二级导航（连接/内容/方式/记录/危险区），右侧内容区。
  * 风格：科学简约，与 dsh 原生设置一致；中英双语。
- * 零依赖：原生 DOM + fetch 调用 /api/webdav-sync/* API。
+ * 零依赖：原生 DOM + fetch 调用 /api/webdav-enhanced/* API。
  */
 window.__ModuleLoader__.load({
   id: 'dsh-webdav-enhanced',
@@ -11,8 +11,8 @@ window.__ModuleLoader__.load({
     'use strict'
 
     const React = require('react')
-    const NS = 'webdav-sync'
-    const API_BASE = '/api/webdav-sync'
+    const NS = 'webdav-enhanced'
+    const API_BASE = '/api/webdav-enhanced'
 
     // ---------- i18n ----------
     const i18n = {
@@ -659,7 +659,7 @@ window.__ModuleLoader__.load({
     const dictEn = flattenDict(i18n.en)
 
     function apply(ctx) {
-      ctx.effect(() => ctx.locale.register(NS, { zh: dictZh, en: dictEn }), 'webdav-sync: dictionaries')
+      ctx.effect(() => ctx.locale.register(NS, { zh: dictZh, en: dictEn }), 'webdav-enhanced: dictionaries')
       ctx.slots.inject('plugins.bundle.config', () =>
         ctx.slots.register(
           {

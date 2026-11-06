@@ -4,6 +4,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, unlinkSync } from 'node:fs'
 import path from 'node:path'
+import { DATA_DIRNAME } from './config-store.js'
 
 export const CREDENTIALS_FILENAME = 'credentials.json'
 
@@ -15,7 +16,7 @@ export class CredentialStore {
   private readonly filePath: string
 
   constructor(dshHome: string) {
-    const dir = path.join(dshHome, '.webdav-sync')
+    const dir = path.join(dshHome, DATA_DIRNAME)
     mkdirSync(dir, { recursive: true })
     this.filePath = path.join(dir, CREDENTIALS_FILENAME)
   }

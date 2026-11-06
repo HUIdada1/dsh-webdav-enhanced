@@ -1,5 +1,5 @@
 /*
- * 本地配置存储：~/.dsh/webdav-sync.json（或探测到的 dshHome 下）。
+ * 本地配置存储：~/.dsh/.webdav-enhanced/webdav-enhanced.json（或探测到的 dshHome 下）。
  * 密码不落明文：仅存引用（keychain / credentials），实际密码由 host 层
  * 写入 .credentials.yaml 的专属字段或系统钥匙串。
  */
@@ -9,7 +9,39 @@ import { hostname } from 'node:os'
 import path from 'node:path'
 import type { PluginConfig, ResolvedEnv, SyncScope } from '../types.js'
 
-export const CONFIG_FILENAME = 'webdav-sync.json'
+/** 数据目录名（相对 dshHome） */
+export const DATA_DIRNAME = '.webdav-enhanced'
+
+export const CONFIG_FILENAME = 'webdav-enhanced.json'
+
+/** 旧版本用的目录名与文件名，仅用于一次性迁移 */
+const LEGACY_DIRNAME = '.webdav-sync'
+const LEGACY_CONFIG_FILENAME = 'webdav-sync.json'
+
+/**
+ * 把旧版 webdav-sync 的数据目录与配置文件名迁移到新命名。
+ * 只在目标不存在时执行，失败静默（新目录照常创建，不影响功能）。
+ */
+export function migrateLegacyData(dshHome: string): void {
+  const legacyDir = path.join(dshHome, LEGACY_DIRNAME)
+  const nextDir = path.join(dshHome, DATA_DIRNAME)
+  if (existsSync(legacyDir) && !existsSync(nextDir)) {
+    try {
+      renameSync(legacyDir, nextDir)
+    } catch {
+      /* 目录被占用等情况：放弃迁移，保留旧数据不动 */
+    }
+  }
+  const legacyFile = path.join(nextDir, LEGACY_CONFIG_FILENAME)
+  const nextFile = path.join(nextDir, CONFIG_FILENAME)
+  if (existsSync(legacyFile) && !existsSync(nextFile)) {
+    try {
+      renameSync(legacyFile, nextFile)
+    } catch {
+      /* 同上 */
+    }
+  }
+}
 
 export function defaultScope(): SyncScope {
   return {
@@ -52,7 +84,7 @@ export class ConfigStore {
   private cache: PluginConfig | null = null
 
   constructor(dshHome: string) {
-    const dir = path.join(dshHome, '.webdav-sync')
+    const dir = path.join(dshHome, DATA_DIRNAME)
     mkdirSync(dir, { recursive: true })
     this.filePath = path.join(dir, CONFIG_FILENAME)
   }

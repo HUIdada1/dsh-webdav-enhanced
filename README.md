@@ -89,7 +89,7 @@ dsh plugin --profile desktop add link:/path/to/dsh-webdav-enhanced
 
 | 策略 | 行为 |
 | --- | --- |
-| **自动合并 + 本地备份**（默认） | 下载远端版本，本地旧版本打包到 `~/.dsh/webdav-sync/backups/<kind>s/` |
+| **自动合并 + 本地备份**（默认） | 下载远端版本，本地旧版本打包到 `$DSH_HOME/.webdav-enhanced/backups/<kind>s/` |
 | **冲突时询问** | 与上者相同，但在界面上显著标记冲突条目 |
 | **本机优先** | 上传本机版本，覆盖远端 |
 | **远端优先** | 下载远端版本，覆盖本机（旧版本仍会备份） |
@@ -107,7 +107,7 @@ dsh plugin --profile desktop add link:/path/to/dsh-webdav-enhanced
 ## 安全
 
 - **API Key 默认不同步**：`.credentials.yaml` 与 `settings.yaml` 中的 `apiKey` 字段被排除；配置同步默认关闭。
-- **密码不出本机**：WebDAV 密码写在 `$DSH_HOME/.webdav-sync/credentials.json`（权限 0600），既不进 cordis 配置，也不上传远端；接口返回的配置里永远不含密码。
+- **密码不出本机**：WebDAV 密码写在 `$DSH_HOME/.webdav-enhanced/credentials.json`（权限 0600），既不进 cordis 配置，也不上传远端；接口返回的配置里永远不含密码。
 - **完整性校验**：所有 zip 按 SHA-256 内容寻址，下载后逐份校验。
 - **解压防护**：拒绝路径穿越与 zip 炸弹，单文件 128MB、总量 512MB 上限。
 
@@ -126,8 +126,8 @@ dsh plugin --profile desktop add link:/path/to/dsh-webdav-enhanced
 ## 本机目录结构
 
 ```
-$DSH_HOME/.webdav-sync/
-├── webdav-sync.json     # 同步配置与状态（不含密码）
+$DSH_HOME/.webdav-enhanced/
+├── webdav-enhanced.json     # 同步配置与状态（不含密码）
 └── credentials.json     # WebDAV 密码（0600，不进 git、不上远端）
 ```
 

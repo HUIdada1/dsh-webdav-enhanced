@@ -68,7 +68,7 @@ class WebDavClientImpl implements WebDavClient {
     }
     this.client = createClient(cfg.url, {
       ...creds,
-      headers: { 'User-Agent': 'dsh-webdav-sync/0.1' } as Headers,
+      headers: { 'User-Agent': 'dsh-webdav-enhanced/0.2.0' } as Headers,
       maxBodyLength: Infinity,
       maxContentLength: Infinity,
     } as Parameters<typeof createClient>[1])
@@ -87,7 +87,7 @@ class WebDavClientImpl implements WebDavClient {
         lastErr = err
         if (!isRetryable(err)) throw err
         const delay = 1000 * 2 ** attempt
-        console.warn(`[webdav-sync] ${label} failed (attempt ${attempt + 1}/${maxRetries + 1}), retry in ${delay}ms`)
+        console.warn(`[webdav-enhanced] ${label} failed (attempt ${attempt + 1}/${maxRetries + 1}), retry in ${delay}ms`)
         await sleep(delay)
       }
     }
@@ -327,7 +327,7 @@ class WebDavClientImpl implements WebDavClient {
 
   private tmpDir(): string {
     // 用系统临时目录：早期版本落在 process.cwd()，会往用户项目里堆垃圾
-    const dir = path.join(os.tmpdir(), 'dsh-webdav-sync')
+    const dir = path.join(os.tmpdir(), 'dsh-webdav-enhanced')
     mkdirSync(dir, { recursive: true })
     return dir
   }

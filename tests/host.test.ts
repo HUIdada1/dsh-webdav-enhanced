@@ -52,7 +52,7 @@ function makeCtx() {
 
 describe('host', () => {
   it('exports expected Cordis bundle shape', () => {
-    expect(name).toBe('webdav-sync')
+    expect(name).toBe('webdav-enhanced')
     expect(typeof apply).toBe('function')
     // Schemastery Config 是函数（可调用），不是 plain object
     expect(['function', 'object']).toContain(typeof Config)
@@ -89,7 +89,7 @@ describe('host', () => {
     apply(ctx, Config({}))
     expect(routes).toHaveLength(1)
     expect(routes[0].kind).toBe('prefix')
-    expect(routes[0].path).toBe('/api/webdav-sync')
+    expect(routes[0].path).toBe('/api/webdav-enhanced')
     expect(typeof routes[0].handler).toBe('function')
   })
 
@@ -109,7 +109,7 @@ describe('host', () => {
     const clientJs = readFileSync(path.join(here, '..', 'src', 'client.js'), 'utf8')
     expect(clientJs).toContain('__ModuleLoader__')
     expect(clientJs).toContain('plugins.bundle.config')
-    expect(clientJs).toContain('/api/webdav-sync')
+    expect(clientJs).toContain('/api/webdav-enhanced')
     // slot key 必须是包名，和 @michengai/dsh-archive-manager 的写法一致
     expect(clientJs).toContain("key: 'dsh-webdav-enhanced'")
     // 旧的全局挂载机制已废弃

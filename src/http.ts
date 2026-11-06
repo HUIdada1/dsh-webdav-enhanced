@@ -1,5 +1,5 @@
 /*
- * HTTP 路由层：把 core 能力暴露给设置页前端（/api/webdav-sync/*）。
+ * HTTP 路由层：把 core 能力暴露给设置页前端（/api/webdav-enhanced/*）。
  * 只依赖 host 注入的 HttpContext，不直接接触 cordis 运行时，
  * 因此可以在纯 node 环境下用 mock 测试。
  */
@@ -12,7 +12,7 @@ import { emptyManifest } from './core/manifest.js'
 import type { CredentialStore } from './core/credentials.js'
 import type { EntryKind, PluginConfig, ResolvedEnv } from './types.js'
 
-export const HTTP_PREFIX = '/api/webdav-sync'
+export const HTTP_PREFIX = '/api/webdav-enhanced'
 
 export interface HttpRuntime {
   store: ConfigStore

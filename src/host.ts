@@ -1,13 +1,13 @@
 /*
  * 宿主入口：Cordis bundle 标准结构（name + Config + apply）。
  * - Config 用 Schemastery 定义，默认值齐全，改配置触发热更新。
- * - 注册 HTTP 路由（/api/webdav-sync/*）供设置页调用，另注册两个 Agent 工具。
+ * - 注册 HTTP 路由（/api/webdav-enhanced/*）供设置页调用，另注册两个 Agent 工具。
  * - 持有 SyncEngine / ConfigStore / CredentialStore 生命周期；卸载时清理定时器。
  */
 import os from 'node:os'
 import Schema from 'schemastery'
 import { resolveEnv } from './core/env.js'
-import { ConfigStore, defaultConfig, generateMachineId } from './core/config-store.js'
+import { ConfigStore, defaultConfig, generateMachineId, migrateLegacyData } from './core/config-store.js'
 import { CredentialStore } from './core/credentials.js'
 import { createSyncEngine, type SyncEngineImpl } from './core/sync.js'
 import { createWebDavClient } from './core/webdav.js'
@@ -15,7 +15,7 @@ import { WebDavSyncStore } from './core/webdav-store.js'
 import { registerHttpRoutes, type HttpContext, type HttpRuntime, type WebServerLike } from './http.js'
 import type { ResolvedEnv } from './types.js'
 
-export const name = 'webdav-sync'
+export const name = 'webdav-enhanced'
 
 /** 远端同步根目录（与 README 的目录布局一致） */
 const REMOTE_ROOT = '/dsh-sync/'
@@ -129,6 +129,9 @@ export function apply(ctx: unknown, config: Config) {
     if (runtime.store) return
     const env = await resolveEnv({ profile: config.profile })
     const dshHome = env.dshHome || process.env.DSH_HOME || os.homedir()
+
+    // 旧版 webdav-sync 的数据目录/配置文件名一次性迁移到新命名
+    migrateLegacyData(dshHome)
 
     const store = new ConfigStore(dshHome)
     const creds = new CredentialStore(dshHome)

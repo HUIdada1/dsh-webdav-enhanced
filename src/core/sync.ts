@@ -3,7 +3,7 @@
  * - 顺序固定，每步失败记录到 errors 并继续，整体报告 SyncRunReport。
  * - 定时调度支持 intervalHours（0=关）+ 0-5 分钟抖动避开多机撞锁。
  * - 冲突处理：merge-backup 时，远端版本照常下载，本地当前版本备份到
- *   ~/.dsh/webdav-sync/backups/<kind>s/<name>.conflict-<machineId>-<ts>/。
+ *   ~/.dsh/webdav-enhanced/backups/<kind>s/<name>.conflict-<machineId>-<ts>/。
  * - 上传去重由 webdav-store.pushEntry 内置（同 hash 跳过）。
  * - 全部对外部依赖以接口注入，便于单测。
  */
@@ -127,7 +127,7 @@ export class SyncEngineImpl implements SyncEngine {
       this.deps.configStore.update({ lastSyncedHashes: map, lastSyncAt: nowIso() })
     } catch (err) {
       // 持久化失败不影响本轮结果，只记日志
-      console.warn('[webdav-sync] persistHashes failed:', (err as Error).message)
+      console.warn('[webdav-enhanced] persistHashes failed:', (err as Error).message)
     }
     this._lastScanEntries = []
   }
@@ -305,7 +305,7 @@ export class SyncEngineImpl implements SyncEngine {
     const local = this._lastScanEntries.find((e) => e.kind === kind && e.name === name)
     if (!local) return
     const machineId = this.cfg().machineId
-    const bakDir = path.join(this.deps.env.dshHome, '.webdav-sync', 'backups', `${kind}s`, conflictCopyName(name, machineId))
+    const bakDir = path.join(this.deps.env.dshHome, '.webdav-enhanced', 'backups', `${kind}s`, conflictCopyName(name, machineId))
     await mkdir(path.dirname(bakDir), { recursive: true })
     // 用 packager 打 zip 到备份目录（一致性 + 排除 node_modules 等）
     const packed = await this.packager.pack(local, bakDir)

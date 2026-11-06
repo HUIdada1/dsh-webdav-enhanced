@@ -148,7 +148,7 @@ function scanConfigs(env: ResolvedEnv, scope: SyncScope['configs']): LocalEntry[
   }
   if (cur.length && keeping) kept = kept.concat(cur)
   if (kept.length === 0) return []
-  const stubFile = path.join(env.dshHome, '.webdav-sync', 'config-stub', 'settings.yaml')
+  const stubFile = path.join(env.dshHome, '.webdav-enhanced', 'config-stub', 'settings.yaml')
   const dir = path.dirname(stubFile)
   mkdirSync(dir, { recursive: true })
   writeFileSync(stubFile, kept.join('\n'), 'utf8')

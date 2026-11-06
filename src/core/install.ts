@@ -33,13 +33,13 @@ class InstallerImpl implements Installer {
         manualCommand: `手动解压 ${packed.zipPath} 到 ${this.env.dshHome}/plugins/`,
       }
     }
-    const staging = path.join(this.env.dshHome, '.webdav-sync', 'bundle-staging', meta.name)
+    const staging = path.join(this.env.dshHome, '.webdav-enhanced', 'bundle-staging', meta.name)
     await rm(staging, { recursive: true, force: true }).catch(() => undefined)
     await mkdir(staging, { recursive: true })
     await this.packager.unpack(packed.zipPath, staging, DEFAULT_SAFETY_GUARD)
 
     // 检查是否已安装同 hash（幂等）
-    const installedMark = path.join(this.env.dshHome, '.webdav-sync', 'installed-bundles', `${meta.name}.json`)
+    const installedMark = path.join(this.env.dshHome, '.webdav-enhanced', 'installed-bundles', `${meta.name}.json`)
     if (existsSync(installedMark)) {
       try {
         const prev = JSON.parse(readFileSync(installedMark, 'utf8')) as { hash?: string }
@@ -76,7 +76,7 @@ class InstallerImpl implements Installer {
         { timeout: 120_000, shell: process.platform === 'win32' },
         (err, _stdout, stderr) => {
           if (err) {
-            console.warn('[webdav-sync] dsh plugin add failed:', stderr ?? err.message)
+            console.warn('[webdav-enhanced] dsh plugin add failed:', stderr ?? err.message)
             resolve(false)
             return
           }
@@ -89,7 +89,7 @@ class InstallerImpl implements Installer {
   async applySkill(packed: PackedEntry, meta: PackMeta): Promise<ApplyResult> {
     const dest = path.join(this.env.skillsDir, meta.name)
     // 幂等：同 hash 跳过
-    const markDir = path.join(this.env.dshHome, '.webdav-sync', 'installed-skills')
+    const markDir = path.join(this.env.dshHome, '.webdav-enhanced', 'installed-skills')
     const mark = path.join(markDir, `${meta.name}.json`)
     if (existsSync(mark)) {
       try {
@@ -103,7 +103,7 @@ class InstallerImpl implements Installer {
     }
     // 备份旧版本（冲突回滚需要）
     if (existsSync(dest)) {
-      const bak = path.join(this.env.dshHome, '.webdav-sync', 'backups', 'skills', `${meta.name}-${Date.now()}`)
+      const bak = path.join(this.env.dshHome, '.webdav-enhanced', 'backups', 'skills', `${meta.name}-${Date.now()}`)
       await mkdir(path.dirname(bak), { recursive: true })
       await rename(dest, bak).catch(() => undefined)
     }
@@ -120,7 +120,7 @@ class InstallerImpl implements Installer {
 
   async applyConfig(packed: PackedEntry, meta: PackMeta): Promise<ApplyResult> {
     // 解压到暂存，读 settings.yaml，按顶层 key 合并
-    const staging = path.join(this.env.dshHome, '.webdav-sync', 'config-staging', meta.name)
+    const staging = path.join(this.env.dshHome, '.webdav-enhanced', 'config-staging', meta.name)
     await rm(staging, { recursive: true, force: true }).catch(() => undefined)
     await mkdir(staging, { recursive: true })
     await this.packager.unpack(packed.zipPath, staging, DEFAULT_SAFETY_GUARD)

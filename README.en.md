@@ -89,7 +89,7 @@ Most settings live in the UI; the rest is set through the profile's `cordis.patc
 
 | Policy | Behaviour |
 | --- | --- |
-| **Auto-merge + local backup** (default) | Downloads the remote version and packs your local version into `~/.dsh/webdav-sync/backups/<kind>s/` |
+| **Auto-merge + local backup** (default) | Downloads the remote version and packs your local version into `$DSH_HOME/.webdav-enhanced/backups/<kind>s/` |
 | **Ask on conflict** | Same as above, but the UI flags conflicting entries prominently |
 | **Local wins** | Uploads your version and overwrites the remote one |
 | **Remote wins** | Downloads the remote version and overwrites local (old local copy is still backed up) |
@@ -107,7 +107,7 @@ Most settings live in the UI; the rest is set through the profile's `cordis.patc
 ## Security
 
 - **API keys are never synced by default**: `.credentials.yaml` and `apiKey` fields in `settings.yaml` are excluded, and config sync is off unless you enable it.
-- **Credentials stay local**: the WebDAV password is written to `$DSH_HOME/.webdav-sync/credentials.json` (mode 0600). It never enters the cordis config, never reaches the server, and never appears in any API response.
+- **Credentials stay local**: the WebDAV password is written to `$DSH_HOME/.webdav-enhanced/credentials.json` (mode 0600). It never enters the cordis config, never reaches the server, and never appears in any API response.
 - **Integrity checks**: every zip is content-addressed by SHA-256 and verified on download.
 - **Extraction guards**: path traversal and zip bombs are rejected; 128MB per file, 512MB total.
 
@@ -126,8 +126,8 @@ Most settings live in the UI; the rest is set through the profile's `cordis.patc
 ## Local layout
 
 ```
-$DSH_HOME/.webdav-sync/
-├── webdav-sync.json     # Sync config and state (no password)
+$DSH_HOME/.webdav-enhanced/
+├── webdav-enhanced.json     # Sync config and state (no password)
 └── credentials.json     # WebDAV password (0600, never committed, never uploaded)
 ```
 

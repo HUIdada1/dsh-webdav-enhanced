@@ -1,5 +1,5 @@
 /*
- * dsh-webdav-sync — core type contracts.
+ * dsh-webdav-enhanced — core type contracts.
  * All core modules (env / webdav / pack / manifest / merge / sync / install)
  * program against these interfaces only. The Cordis host layer (host.ts)
  * is the only module allowed to depend on the dsh runtime.
