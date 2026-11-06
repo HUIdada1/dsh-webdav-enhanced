@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { classifyGeneration, resolveEnv } from '../src/core/env.js'
+import { classifyGeneration, detectActiveProfile, resolveEnv } from '../src/core/env.js'
 
 let root: string
 const savedDshHome = process.env.DSH_HOME
@@ -50,6 +50,31 @@ describe('classifyGeneration', () => {
     const d = path.join(root, 'empty')
     mkdirSync(d, { recursive: true })
     expect(classifyGeneration(d)).toBe('unknown')
+  })
+})
+
+describe('detectActiveProfile', () => {
+  it('picks the profile whose node_modules links this package', () => {
+    const home = path.join(root, 'multi')
+    const self = path.join(root, 'self-pkg')
+    mkdirSync(self, { recursive: true })
+    // 两个 profile 并存（桌面版 + Web 版），只有 desktop 装了本包
+    mkdirSync(path.join(home, 'profiles', 'web'), { recursive: true })
+    mkdirSync(path.join(home, 'profiles', 'desktop', 'node_modules'), { recursive: true })
+    writeFileSync(path.join(home, 'profiles', 'desktop', 'node_modules', 'dsh-webdav-enhanced'), '')
+    expect(detectActiveProfile(home, self)).toBe('desktop')
+  })
+
+  it('uses the only profile when nothing is linked (source checkout)', () => {
+    const home = path.join(root, 'single')
+    mkdirSync(path.join(home, 'profiles', 'tui'), { recursive: true })
+    expect(detectActiveProfile(home)).toBe('tui')
+  })
+
+  it('returns null when there is no profile at all', () => {
+    const home = path.join(root, 'noprofiles')
+    mkdirSync(home, { recursive: true })
+    expect(detectActiveProfile(home)).toBeNull()
   })
 })
 

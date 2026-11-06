@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "WebDAV sync",
+    "description": "Keep plugins, skills and model/provider config in sync across machines through one WebDAV server.",
+    "detail": "docs/plugin-detail.en.md"
+  }
+}

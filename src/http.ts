@@ -10,7 +10,7 @@ import { scanLocal } from './core/scan.js'
 import { defaultConfig, type ConfigStore } from './core/config-store.js'
 import { emptyManifest } from './core/manifest.js'
 import type { CredentialStore } from './core/credentials.js'
-import type { EntryKind, PluginConfig, ResolvedEnv } from './types.js'
+import type { EntryKind, PluginConfig, ResolvedEnv, SyncRunReport } from './types.js'
 
 export const HTTP_PREFIX = '/api/webdav-enhanced'
 
@@ -29,6 +29,8 @@ export interface HttpContext {
   reprobe(): Promise<ResolvedEnv>
   logs(): { at: string; message: string }[]
   stopScheduler(): void
+  /** 立即执行一次完整同步（面板「立即同步」与 Agent 工具共用） */
+  runSync(): Promise<SyncRunReport>
 }
 
 /** dsh webServer 服务的最小契约（与 @deepseek-ai/dsh-host-webserver 对齐） */
@@ -99,6 +101,9 @@ async function dispatch(
       return testConnection(req)
     case '/items':
       return listItems(url, ctx)
+    case '/sync':
+      if (method !== 'POST') throw new Error('/sync requires POST')
+      return ctx.runSync()
     case '/reprobe':
       return await ctx.reprobe()
     case '/reset':
@@ -120,6 +125,7 @@ function publicConfig(cfg: PluginConfig) {
       username: cfg.connection.username,
       passwordRef: cfg.connection.passwordRef,
     },
+    options: cfg.options,
     scope: cfg.scope,
     schedule: cfg.schedule,
     conflictPolicy: cfg.conflictPolicy,
@@ -130,11 +136,14 @@ function publicConfig(cfg: PluginConfig) {
 
 function connectionOf(rt: HttpRuntime) {
   const cfg = rt.store.load()
+  const options = cfg.options ?? { timeoutMs: 30000, remoteRoot: rt.remoteRoot, ignoreTlsErrors: false }
   return {
     url: cfg.connection.url,
     username: cfg.connection.username,
     password: rt.getPassword(),
-    remoteRoot: rt.remoteRoot,
+    remoteRoot: options.remoteRoot || rt.remoteRoot,
+    timeoutMs: options.timeoutMs,
+    ignoreTlsErrors: options.ignoreTlsErrors === true,
   }
 }
 
@@ -162,6 +171,7 @@ async function saveConfig(req: IncomingMessage, ctx: HttpContext): Promise<unkno
     }
   }
   if (body.scope) patch.scope = { ...cur.scope, ...body.scope }
+  if (body.options) patch.options = { ...cur.options, ...body.options }
   if (body.schedule) patch.schedule = { ...cur.schedule, ...body.schedule }
   if (body.conflictPolicy) patch.conflictPolicy = body.conflictPolicy
 

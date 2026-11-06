@@ -44,9 +44,9 @@ From a local checkout (link install — rebuild, restart, done):
 dsh plugin --profile desktop add link:/path/to/dsh-webdav-enhanced
 ```
 
-Restart dsh, then open **Plugins** in the left sidebar → scroll to **Installed plugins** → click **dsh-webdav-enhanced**. The configuration panel renders inside the plugin's detail page.
+Restart dsh, then open **Plugins** in the left sidebar → scroll to **Installed plugins** → click **WebDAV sync** (package `dsh-webdav-enhanced`). The configuration panel sits right below the intro document on the plugin's detail page.
 
-> The config page mounts on the `plugins.bundle.config` slot, so it lives in the **plugin detail page**, not as a standalone Settings entry.
+> The config page registers on both `plugins.bundle.config` and `plugins.row.config`, so it follows the plugin detail page instead of becoming a standalone Settings entry. `locale/*.json` supplies the list title and description and `icon.svg` the artwork; without them dsh falls back to the package name and generic art.
 
 ## Quick start
 
@@ -72,7 +72,10 @@ Most settings live in the UI; the rest is set through the profile's `cordis.patc
 
 | Field | Default | Notes |
 | --- | --- | --- |
-| `profile` | `desktop` | Which dsh profile to sync. `desktop` for the app, `web` for the Web GUI |
+| `profile` | auto-detected | Which dsh profile to sync. Leave empty to detect from the profile that installed this plugin: `desktop` for the app, `web` for the Web GUI |
+| `options.timeoutMs` | `30000` | Per-request WebDAV timeout in milliseconds |
+| `options.remoteRoot` | `/dsh-sync/` | Remote sync root |
+| `options.ignoreTlsErrors` | `false` | Self-signed intranet certificates only |
 | `connection.url` / `connection.username` | empty | Also editable in the UI |
 | `connection.password` | empty | First-run migration source only; the local credential file wins afterwards |
 | `schedule.enabled` / `schedule.intervalHours` | `false` / `1` | Scheduled sync |

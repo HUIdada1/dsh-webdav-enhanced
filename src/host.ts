@@ -5,6 +5,8 @@
  * - 持有 SyncEngine / ConfigStore / CredentialStore 生命周期；卸载时清理定时器。
  */
 import os from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import Schema from 'schemastery'
 import { resolveEnv } from './core/env.js'
 import { ConfigStore, defaultConfig, generateMachineId, migrateLegacyData } from './core/config-store.js'
@@ -20,6 +22,9 @@ export const name = 'webdav-enhanced'
 /** 远端同步根目录（与 README 的目录布局一致） */
 const REMOTE_ROOT = '/dsh-sync/'
 
+/** 本包根目录：用于反查「当前插件装在哪个 profile 里」 */
+const SELF_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
+
 /** 内存中保留的最近日志条数 */
 const MAX_LOGS = 50
 
@@ -29,6 +34,11 @@ export interface Config {
     username: string
     password: string
     passwordRef: 'keychain' | 'credentials'
+  }
+  options: {
+    timeoutMs: number
+    remoteRoot: string
+    ignoreTlsErrors: boolean
   }
   schedule: {
     enabled: boolean
@@ -42,7 +52,7 @@ export interface Config {
   }
   conflictPolicy: 'merge-backup' | 'ask' | 'local-wins' | 'remote-wins'
   machineId: string
-  /** 要同步的 dsh profile 名（桌面版为 desktop，Web 版为 web） */
+  /** 要同步的 dsh profile 名；留空自动探测（桌面版 desktop / Web 版 web） */
   profile: string
 }
 
@@ -52,6 +62,11 @@ export const Config = Schema.object({
     username: Schema.string().default(''),
     password: Schema.string().default(''),
     passwordRef: Schema.union(['keychain', 'credentials'] as const).default('credentials'),
+  }),
+  options: Schema.object({
+    timeoutMs: Schema.number().default(30000),
+    remoteRoot: Schema.string().default(REMOTE_ROOT),
+    ignoreTlsErrors: Schema.boolean().default(false),
   }),
   schedule: Schema.object({
     enabled: Schema.boolean().default(false),
@@ -74,7 +89,7 @@ export const Config = Schema.object({
   }),
   conflictPolicy: Schema.union(['merge-backup', 'ask', 'local-wins', 'remote-wins'] as const).default('merge-backup'),
   machineId: Schema.string().default(generateMachineId()),
-  profile: Schema.string().default('desktop'),
+  profile: Schema.string().default(''),
 })
 
 interface ToolRegistration {
@@ -127,7 +142,7 @@ export function apply(ctx: unknown, config: Config) {
 
   async function init(): Promise<void> {
     if (runtime.store) return
-    const env = await resolveEnv({ profile: config.profile })
+    const env = await resolveEnv({ profile: config.profile, selfRoot: SELF_ROOT })
     const dshHome = env.dshHome || process.env.DSH_HOME || os.homedir()
 
     // 旧版 webdav-sync 的数据目录/配置文件名一次性迁移到新命名
@@ -147,6 +162,7 @@ export function apply(ctx: unknown, config: Config) {
         username: config.connection.username,
         passwordRef: config.connection.passwordRef,
       },
+      options: config.options,
       schedule: config.schedule,
       scope: config.scope,
       conflictPolicy: config.conflictPolicy,
@@ -157,7 +173,7 @@ export function apply(ctx: unknown, config: Config) {
     runtime.store = store
     runtime.creds = creds
     runtime.env = env
-    pushLog(`环境探测完成：${env.dshHome || '(未找到)'} [${env.generation}]`)
+    pushLog(`环境探测完成：${env.dshHome || '(未找到)'} · profile ${env.profile} [${env.generation}]`)
   }
 
   async function ensureReady(): Promise<HttpRuntime> {
@@ -172,7 +188,7 @@ export function apply(ctx: unknown, config: Config) {
       store: runtime.store!,
       creds: runtime.creds!,
       env: runtime.env!,
-      remoteRoot: REMOTE_ROOT,
+      remoteRoot: runtime.store!.load().options?.remoteRoot || REMOTE_ROOT,
       getPassword: () => runtime.password,
       setPassword: (password: string) => {
         runtime.password = password
@@ -182,11 +198,14 @@ export function apply(ctx: unknown, config: Config) {
 
   function buildEngine(): SyncEngineImpl {
     const cfg = runtime.store!.load()
+    const options = cfg.options ?? { timeoutMs: 30000, remoteRoot: REMOTE_ROOT, ignoreTlsErrors: false }
     const conn = {
       url: cfg.connection.url,
       username: cfg.connection.username,
       password: runtime.password,
-      remoteRoot: REMOTE_ROOT,
+      remoteRoot: options.remoteRoot || REMOTE_ROOT,
+      timeoutMs: options.timeoutMs,
+      ignoreTlsErrors: options.ignoreTlsErrors === true,
     }
     const client = createWebDavClient(conn)
     const store = new WebDavSyncStore(conn)
@@ -203,19 +222,31 @@ export function apply(ctx: unknown, config: Config) {
     runtime.engine = null
   }
 
+  /** 立即跑一次同步；面板按钮与 Agent 工具共用同一条路径 */
+  async function runSync(): Promise<Awaited<ReturnType<SyncEngineImpl['runOnce']>>> {
+    await ensureReady()
+    const report = await buildEngine().runOnce('manual')
+    pushLog(
+      `同步完成：上传 ${report.uploaded.length}，下载 ${report.downloaded.length}，` +
+        `冲突 ${report.conflicts.length}，错误 ${report.errors.length}`,
+    )
+    return report
+  }
+
   // ---------- HTTP 路由（设置页） ----------
   const httpContext: HttpContext = {
     ready: ensureReady,
     reprobe: async () => {
       await ensureReady()
-      const env = await resolveEnv({ profile: config.profile })
+      const env = await resolveEnv({ profile: config.profile, selfRoot: SELF_ROOT })
       runtime.env = env
       runtime.store!.updateEnv(env)
-      pushLog(`重新探测环境：${env.dshHome || '(未找到)'} [${env.generation}]`)
+      pushLog(`重新探测环境：${env.dshHome || '(未找到)'} · profile ${env.profile} [${env.generation}]`)
       return env
     },
     logs: () => runtime.logs,
     stopScheduler,
+    runSync,
   }
 
   // ---------- 服务注入 ----------
@@ -257,13 +288,7 @@ export function apply(ctx: unknown, config: Config) {
       parameters: {},
       output: { schema: { type: 'object' } },
       async execute() {
-        await ensureReady()
-        const report = await buildEngine().runOnce('manual')
-        pushLog(
-          `手动同步完成：上传 ${report.uploaded.length}，下载 ${report.downloaded.length}，` +
-            `冲突 ${report.conflicts.length}，错误 ${report.errors.length}`,
-        )
-        return report
+        return runSync()
       },
     })
   })

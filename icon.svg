@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="WebDAV sync">
+  <defs>
+    <linearGradient id="wds-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5b8cff"/>
+      <stop offset="1" stop-color="#2f5fd0"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="30" fill="url(#wds-bg)"/>
+  <g fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M39 82a17 17 0 0 1-2-33.9A25 25 0 0 1 85 44a19 19 0 0 1 9.6 36.4" opacity="0.92"/>
+    <path d="M46 76h36"/>
+    <path d="M53 66l-9 10 9 10"/>
+    <path d="M75 66l9 10-9 10"/>
+  </g>
+</svg>

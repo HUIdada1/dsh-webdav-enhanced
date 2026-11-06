@@ -55,6 +55,7 @@ export function defaultScope(): SyncScope {
 export function defaultConfig(machineId?: string): PluginConfig {
   return {
     connection: { url: '', username: '', passwordRef: 'credentials' },
+    options: { timeoutMs: 30000, remoteRoot: '/dsh-sync/', ignoreTlsErrors: false },
     scope: defaultScope(),
     schedule: { enabled: false, intervalHours: 1, direction: 'both' },
     conflictPolicy: 'merge-backup',

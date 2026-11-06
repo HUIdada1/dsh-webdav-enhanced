@@ -6,3 +6,5 @@ lib/
 .box-agent-scratch/
 .webdav-sync-tmp/
 .workbuddy-ai/
+# 本地工作记忆，不入版本库
+.workbuddy/

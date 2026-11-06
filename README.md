@@ -44,9 +44,9 @@ dsh plugin --profile web add dsh-webdav-enhanced
 dsh plugin --profile desktop add link:/path/to/dsh-webdav-enhanced
 ```
 
-装好后重启 dsh，进入左侧边栏的 **插件** → 滚到 **已安装插件** → 点开 **dsh-webdav-enhanced**，配置面板就在插件详情页里。
+装好后重启 dsh，进入左侧边栏的 **插件** → 滚到 **已安装插件** → 点开 **WebDAV 同步**（包名 `dsh-webdav-enhanced`），配置面板就在插件详情页的简介下方。
 
-> 注意：配置页挂在 `plugins.bundle.config` 插槽上，渲染在**插件详情页**，不是设置里的独立条目。
+> 说明：配置页注册在 `plugins.bundle.config` 与 `plugins.row.config` 两个插槽上，跟随插件详情页渲染，不是设置里的独立条目。包内 `locale/*.json` 提供列表里的标题与描述，`icon.svg` 提供图标；缺任意一项时 dsh 会退回包名与默认插画。
 
 ## 快速开始
 
@@ -72,9 +72,12 @@ dsh plugin --profile desktop add link:/path/to/dsh-webdav-enhanced
 
 | 字段 | 默认 | 说明 |
 | --- | --- | --- |
-| `profile` | `desktop` | 要同步的 dsh profile 名。桌面版用 `desktop`，Web 版用 `web` |
+| `profile` | 自动探测 | 要同步的 dsh profile 名。留空时按「哪个 profile 装了本插件」判定，桌面版得 `desktop`、Web 版得 `web` |
 | `connection.url` / `connection.username` | 空 | 也可在设置页填写 |
 | `connection.password` | 空 | 仅作首次迁移来源；之后以本地凭据文件为准 |
+| `options.timeoutMs` | `30000` | 单次 WebDAV 请求超时（毫秒） |
+| `options.remoteRoot` | `/dsh-sync/` | 远端同步根目录 |
+| `options.ignoreTlsErrors` | `false` | 仅内网自签证书场景开启 |
 | `schedule.enabled` / `schedule.intervalHours` | `false` / `1` | 定时同步开关与周期 |
 | `conflictPolicy` | `merge-backup` | 冲突策略 |
 | `scope.*` | 插件 + 技能 `all`，配置 `none` | 同步范围 |
@@ -144,6 +147,9 @@ $DSH_HOME/.webdav-enhanced/
 
 | 现象 | 原因 | 解决 |
 | --- | --- | --- |
+| 插件页里看不到配置面板 | 面板渲染在详情页简介下方，不是侧栏独立入口 | 打开 插件 → 已安装插件 → WebDAV 同步，向下滚动到简介之后 |
+| 列表里只显示包名、没有图标 | `dsh.client` 或 `icon` / `locale` 导出缺失 | 0.3.0 起已内置，确认安装的是 `>=0.3.0` |
+| 面板出现但按钮是空白文字 | 旧版把 DOM 节点当文本塞进容器 | 升级到 `>=0.3.0` 并重启 dsh |
 | 测试连接 401 | 账号或密码错误 | Nextcloud、坚果云需使用应用专用密码 |
 | MKCOL 返回 405 | 目录已存在 | 无害，同步继续 |
 | 同步返回 412 | 远端在合并期间被改动 | 自动重试 3 次；持续失败说明另一台机器正在同步 |

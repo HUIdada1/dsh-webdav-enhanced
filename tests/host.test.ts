@@ -65,9 +65,9 @@ describe('host', () => {
     expect(source).not.toMatch(/^export default /m)
   })
 
-  it('Config exposes profile with desktop default', () => {
+  it('Config leaves profile empty so the host can auto-detect it', () => {
     const cfg = Config({})
-    expect(cfg.profile).toBe('desktop')
+    expect(cfg.profile).toBe('')
   })
 
   it('Config fills defaults for an empty config object', () => {
@@ -105,18 +105,20 @@ describe('host', () => {
     expect(events).toContain('dispose')
   })
 
-  it('client.js is a dsh module wired to the settings slot', () => {
+  it('client.js is a dsh module wired to both config slots', () => {
     const clientJs = readFileSync(path.join(here, '..', 'src', 'client.js'), 'utf8')
     expect(clientJs).toContain('__ModuleLoader__')
-    expect(clientJs).toContain('plugins.bundle.config')
+    // 组合包详情页 + 行「配置」页，两个入口都注册，哪个版本渲染哪个就用哪个
+    expect(clientJs).toContain("'plugins.bundle.config'")
+    expect(clientJs).toContain("'plugins.row.config'")
+    expect(clientJs).toContain("const PKG = 'dsh-webdav-enhanced'")
     expect(clientJs).toContain('/api/webdav-enhanced')
-    // slot key 必须是包名，和 @michengai/dsh-archive-manager 的写法一致
-    expect(clientJs).toContain("key: 'dsh-webdav-enhanced'")
-    // 旧的全局挂载机制已废弃
+    // 旧实现把 DOM 节点当文本传，按钮退化成 "[object HTMLButtonElement]"
+    expect(clientJs).not.toMatch(/el\('div', 'wds-actions'/)
     expect(clientJs).not.toContain('__webdavSyncMount')
   })
 
-  it('package manifest declares a boot-loaded web client bundle', () => {
+  it('package manifest declares a boot-loaded web client bundle with display metadata', () => {
     const pkg = JSON.parse(readFileSync(path.join(here, '..', 'package.json'), 'utf8'))
     expect(pkg.dsh.bundle.patch).toBe('./cordis.patch.yml')
     expect(pkg.dsh.client.platform).toBe('web')
@@ -124,5 +126,21 @@ describe('host', () => {
     // 不会 materialize，apply 永不执行 → 设置页不出现
     expect(pkg.dsh.client.immediately).toBe(true)
     expect(pkg.exports['./client']).toBeDefined()
+    // 插件列表的标题 / 描述 / 图标来自这三处，缺一个就退回包名与默认插画
+    expect(pkg.icon).toBe('./icon.svg')
+    expect(pkg.exports['./icon']).toBe('./icon.svg')
+    expect(pkg.exports['./locale/*.json']).toBe('./locale/*.json')
+  })
+
+  it('locale files carry meta.title / meta.description / meta.detail', () => {
+    for (const locale of ['zh', 'en']) {
+      const dict = JSON.parse(readFileSync(path.join(here, '..', 'locale', `${locale}.json`), 'utf8'))
+      expect(typeof dict.meta.title).toBe('string')
+      expect(dict.meta.title.length).toBeGreaterThan(0)
+      expect(typeof dict.meta.description).toBe('string')
+      // meta.detail 必须是包内 .md 相对路径，否则插件页会报 invalid
+      expect(dict.meta.detail).toMatch(/^docs\/[\w.-]+\.md$/)
+      expect(readFileSync(path.join(here, '..', dict.meta.detail), 'utf8').length).toBeGreaterThan(0)
+    }
   })
 })

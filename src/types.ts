@@ -288,6 +288,16 @@ export interface PluginConnectionConfig {
   passwordRef: 'keychain' | 'credentials'
 }
 
+/** 连接层可选参数：设置页「高级选项」里可改，也可写在 cordis.patch.yml 的 config 里 */
+export interface PluginOptions {
+  /** 单次 HTTP 请求超时，毫秒 */
+  timeoutMs: number
+  /** 远端同步根目录 */
+  remoteRoot: string
+  /** 仅内网自签证书场景开启 */
+  ignoreTlsErrors: boolean
+}
+
 export type ScopeMode = 'all' | 'selected' | 'none'
 
 export interface SyncScope {
@@ -298,6 +308,7 @@ export interface SyncScope {
 
 export interface PluginConfig {
   connection: PluginConnectionConfig
+  options: PluginOptions
   scope: SyncScope
   schedule: { enabled: boolean; intervalHours: number; direction: SyncDirection }
   conflictPolicy: ConflictPolicy

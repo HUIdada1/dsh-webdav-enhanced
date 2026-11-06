@@ -6,13 +6,16 @@
  */
 import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
-import { existsSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import type { HostGeneration, Platform, ResolvedEnv } from '../types.js'
 
 const SETTINGS = 'settings.yaml'
 const CREDENTIALS = '.credentials.yaml'
+
+/** 本包名：用于反查「自己被装在哪个 profile 里」 */
+export const PACKAGE_NAME = 'dsh-webdav-enhanced'
 
 const nodeRequire = createRequire(import.meta.url)
 
@@ -76,8 +79,44 @@ export function classifyGeneration(dir: string): HostGeneration {
 export interface EnvProbeOptions {
   /** 用户在设置页手动指定的目录（最高优先级） */
   overrideDir?: string | null
-  /** 默认 'web' */
+  /** profile 名；留空表示自动探测 */
   profile?: string
+  /** 本包根目录，用于精确判定 profile；省略时退化为「第一个装了本包的 profile」 */
+  selfRoot?: string | null
+}
+
+/**
+ * 反查当前插件被安装在哪个 profile 下。
+ * dsh 桌面版与 Web 版、多 profile 并存时，写死 'desktop' 会指错目录；
+ * 这里按「哪个 profile 的 node_modules 里链接着本包」判定，最稳。
+ * @param dshHome dsh 数据主目录
+ * @param selfRoot 本包根目录（默认由调用方传入 import.meta 推出的路径）
+ */
+export function detectActiveProfile(dshHome: string, selfRoot?: string | null): string | null {
+  const profilesDir = path.join(dshHome, 'profiles')
+  const names = safeReaddir(profilesDir).filter((name) => isDir(path.join(profilesDir, name)))
+  if (!names.length) return null
+
+  const real = (target: string): string => {
+    try {
+      return realpathSync(target)
+    } catch {
+      return target
+    }
+  }
+  const wanted = selfRoot ? real(selfRoot) : null
+  let fallback: string | null = null
+
+  for (const name of names) {
+    const link = path.join(profilesDir, name, 'node_modules', PACKAGE_NAME)
+    if (!existsSync(link)) continue
+    if (wanted && real(link) === wanted) return name
+    if (!fallback) fallback = name
+  }
+  // 没找到链接（例如源码里直接跑）时，只有一个 profile 就认定它
+  if (fallback) return fallback
+  if (names.length === 1) return names[0]
+  return null
 }
 
 function buildEmpty(profile: string): ResolvedEnv {
@@ -100,7 +139,6 @@ function buildEmpty(profile: string): ResolvedEnv {
  * 探测并归一化 dsh 环境。
  */
 export async function resolveEnv(opts: EnvProbeOptions = {}): Promise<ResolvedEnv> {
-  const profile = opts.profile ?? 'web'
   const platform = process.platform
   const candidates: string[] = []
 
@@ -113,12 +151,14 @@ export async function resolveEnv(opts: EnvProbeOptions = {}): Promise<ResolvedEn
   const scored = existing
     .map((dir) => ({
       dir,
-      hasSettings: existsSync(path.join(dir, SETTINGS)) || existsSync(path.join(dir, 'settings.yml')),
+      // cordis 代（含 profiles/）优先于只有 settings 的旁路目录，其次看修改时间
+      rank: existsSync(path.join(dir, 'profiles')) ? 2 : existsSync(path.join(dir, SETTINGS)) || existsSync(path.join(dir, 'settings.yml')) ? 1 : 0,
       mtime: safeStat(dir)?.mtimeMs ?? 0,
     }))
-    .sort((a, b) => Number(b.hasSettings) - Number(a.hasSettings) || b.mtime - a.mtime)
+    .sort((a, b) => b.rank - a.rank || b.mtime - a.mtime)
 
   const primary = scored[0]?.dir ?? ''
+  const profile = (opts.profile && opts.profile.trim()) || detectActiveProfile(primary, opts.selfRoot) || 'desktop'
   if (!primary) return buildEmpty(profile)
 
   const generation = classifyGeneration(primary)
