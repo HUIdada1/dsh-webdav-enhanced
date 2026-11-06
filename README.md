@@ -1,10 +1,10 @@
-# dsh-webdav-sync
+# dsh-webdav-enhanced
 
-[![npm version](https://img.shields.io/npm/v/dsh-webdav-sync?color=4a7dff)](https://www.npmjs.com/package/dsh-webdav-sync)
-[![npm downloads](https://img.shields.io/npm/dm/dsh-webdav-sync)](https://www.npmjs.com/package/dsh-webdav-sync)
+[![npm version](https://img.shields.io/npm/v/dsh-webdav-enhanced?color=4a7dff)](https://www.npmjs.com/package/dsh-webdav-enhanced)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-webdav-enhanced)](https://www.npmjs.com/package/dsh-webdav-enhanced)
 [![GitHub stars](https://img.shields.io/github/stars/HUIdada1/dsh-webdav-enhanced?style=social)](https://github.com/HUIdada1/dsh-webdav-enhanced)
-[![license](https://img.shields.io/npm/l/dsh-webdav-sync)](./LICENSE)
-[![node](https://img.shields.io/node/v/dsh-webdav-sync)](./package.json)
+[![license](https://img.shields.io/npm/l/dsh-webdav-enhanced)](./LICENSE)
+[![node](https://img.shields.io/node/v/dsh-webdav-enhanced)](./package.json)
 [![DeepSeek Harness plugin](https://img.shields.io/badge/DeepSeek%20Harness-plugin-4a7dff)](https://www.npmjs.com/package/@deepseek-ai/dsh)
 
 **简体中文** | [English](README.en.md)
@@ -28,14 +28,14 @@
 
 ## 安装
 
-在 dsh 的 **Add plugin** 向导里搜索 `dsh-webdav-sync` 并安装，或用 CLI：
+在 dsh 的 **Add plugin** 向导里搜索 `dsh-webdav-enhanced` 并安装，或用 CLI：
 
 ```bash
 # 桌面版（Electron）：profile 名为 desktop
-dsh plugin --profile desktop add dsh-webdav-sync
+dsh plugin --profile desktop add dsh-webdav-enhanced
 
 # Web 版：profile 名为 web
-dsh plugin --profile web add dsh-webdav-sync
+dsh plugin --profile web add dsh-webdav-enhanced
 ```
 
 本地开发版（link 安装，重新构建后重启即可生效）：
@@ -44,7 +44,7 @@ dsh plugin --profile web add dsh-webdav-sync
 dsh plugin --profile desktop add link:/path/to/dsh-webdav-enhanced
 ```
 
-装好后重启 dsh，进入左侧边栏的 **插件** → 滚到 **已安装插件** → 点开 **dsh-webdav-sync**，配置面板就在插件详情页里。
+装好后重启 dsh，进入左侧边栏的 **插件** → 滚到 **已安装插件** → 点开 **dsh-webdav-enhanced**，配置面板就在插件详情页里。
 
 > 注意：配置页挂在 `plugins.bundle.config` 插槽上，渲染在**插件详情页**，不是设置里的独立条目。
 

@@ -1,12 +1,12 @@
 /*
  * WebDAV Sync 设置页前端（dsh 模块格式）。
- * 挂载点：设置 → 插件 → dsh-webdav-sync（plugins.bundle.config slot）。
+ * 挂载点：插件 → 已安装插件 → dsh-webdav-enhanced（plugins.bundle.config slot）。
  * 布局：左侧二级导航（连接/内容/方式/记录/危险区），右侧内容区。
  * 风格：科学简约，与 dsh 原生设置一致；中英双语。
  * 零依赖：原生 DOM + fetch 调用 /api/webdav-sync/* API。
  */
 window.__ModuleLoader__.load({
-  id: 'dsh-webdav-sync',
+  id: 'dsh-webdav-enhanced',
   factory: (require) => {
     'use strict'
 
@@ -664,7 +664,7 @@ window.__ModuleLoader__.load({
         ctx.slots.register(
           {
             name: 'plugins.bundle.config',
-            key: 'dsh-webdav-sync',
+            key: 'dsh-webdav-enhanced',
             locale: NS,
           },
           WebDavSyncPanel,

@@ -1,10 +1,10 @@
-# dsh-webdav-sync
+# dsh-webdav-enhanced
 
-[![npm version](https://img.shields.io/npm/v/dsh-webdav-sync?color=4a7dff)](https://www.npmjs.com/package/dsh-webdav-sync)
-[![npm downloads](https://img.shields.io/npm/dm/dsh-webdav-sync)](https://www.npmjs.com/package/dsh-webdav-sync)
+[![npm version](https://img.shields.io/npm/v/dsh-webdav-enhanced?color=4a7dff)](https://www.npmjs.com/package/dsh-webdav-enhanced)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-webdav-enhanced)](https://www.npmjs.com/package/dsh-webdav-enhanced)
 [![GitHub stars](https://img.shields.io/github/stars/HUIdada1/dsh-webdav-enhanced?style=social)](https://github.com/HUIdada1/dsh-webdav-enhanced)
-[![license](https://img.shields.io/npm/l/dsh-webdav-sync)](./LICENSE)
-[![node](https://img.shields.io/node/v/dsh-webdav-sync)](./package.json)
+[![license](https://img.shields.io/npm/l/dsh-webdav-enhanced)](./LICENSE)
+[![node](https://img.shields.io/node/v/dsh-webdav-enhanced)](./package.json)
 [![DeepSeek Harness plugin](https://img.shields.io/badge/DeepSeek%20Harness-plugin-4a7dff)](https://www.npmjs.com/package/@deepseek-ai/dsh)
 
 [简体中文](README.md) | **English**
@@ -28,14 +28,14 @@ Install once on one machine — the rest follow automatically. No more repeated 
 
 ## Install
 
-Search for `dsh-webdav-sync` in the dsh **Add plugin** wizard, or use the CLI:
+Search for `dsh-webdav-enhanced` in the dsh **Add plugin** wizard, or use the CLI:
 
 ```bash
 # Desktop app (Electron) — profile is `desktop`
-dsh plugin --profile desktop add dsh-webdav-sync
+dsh plugin --profile desktop add dsh-webdav-enhanced
 
 # Web GUI — profile is `web`
-dsh plugin --profile web add dsh-webdav-sync
+dsh plugin --profile web add dsh-webdav-enhanced
 ```
 
 From a local checkout (link install — rebuild, restart, done):
@@ -44,7 +44,7 @@ From a local checkout (link install — rebuild, restart, done):
 dsh plugin --profile desktop add link:/path/to/dsh-webdav-enhanced
 ```
 
-Restart dsh, then open **Plugins** in the left sidebar → scroll to **Installed plugins** → click **dsh-webdav-sync**. The configuration panel renders inside the plugin's detail page.
+Restart dsh, then open **Plugins** in the left sidebar → scroll to **Installed plugins** → click **dsh-webdav-enhanced**. The configuration panel renders inside the plugin's detail page.
 
 > The config page mounts on the `plugins.bundle.config` slot, so it lives in the **plugin detail page**, not as a standalone Settings entry.
 

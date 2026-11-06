@@ -111,7 +111,7 @@ describe('host', () => {
     expect(clientJs).toContain('plugins.bundle.config')
     expect(clientJs).toContain('/api/webdav-sync')
     // slot key 必须是包名，和 @michengai/dsh-archive-manager 的写法一致
-    expect(clientJs).toContain("key: 'dsh-webdav-sync'")
+    expect(clientJs).toContain("key: 'dsh-webdav-enhanced'")
     // 旧的全局挂载机制已废弃
     expect(clientJs).not.toContain('__webdavSyncMount')
   })

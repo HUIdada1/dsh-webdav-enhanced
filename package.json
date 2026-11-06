@@ -1,5 +1,5 @@
 {
-  "name": "dsh-webdav-sync",
+  "name": "dsh-webdav-enhanced",
   "version": "0.2.0",
   "description": "WebDAV sync plugin for DeepSeek Harness: sync plugins, skills and model/provider configs across machines.",
   "type": "module",
@@ -34,7 +34,8 @@
     "build": "tsc -p tsconfig.json && node scripts/copy-client.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build",
+    "prepublishOnly": "npm run build"
   },
   "engines": {
     "node": ">=20"
@@ -54,6 +55,10 @@
     "webdav-server": "^2.6.3"
   },
   "license": "MIT",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/HUIdada1/dsh-webdav-enhanced.git"
