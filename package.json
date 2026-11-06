@@ -1,6 +1,6 @@
 {
   "name": "dsh-webdav-enhanced",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "WebDAV sync plugin for DeepSeek Harness: sync plugins, skills and model/provider configs across machines.",
   "type": "module",
   "main": "lib/host.js",

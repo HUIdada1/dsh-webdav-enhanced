@@ -97,7 +97,6 @@ class WebDavClientImpl implements WebDavClient {
   // ---------- connection test ----------
 
   async testConnection(): Promise<TestConnectionResult> {
-    const caps = await this.probeCapabilities()
     const steps: TestConnectionResult['steps'] = []
 
     const run = async (step: TestConnectionResult['steps'][number]['step'], fn: () => Promise<void>): Promise<void> => {
@@ -118,7 +117,12 @@ class WebDavClientImpl implements WebDavClient {
       try {
         await this.client.createDirectory(this.root)
       } catch (err) {
-        if (statusOf(err) !== 405) throw err
+        const code = statusOf(err)
+        // 405：已存在。423：集合存在但被锁（部分服务端对已存在目录返回它），
+        // 只要 PROPFIND 能读到就当目录就绪，真正的写入问题留给 put 报。
+        if (code === 405) return
+        if (code === 423 && (await this.client.stat(this.root).catch(() => null))) return
+        throw err
       }
     })
     const probeRel = `_probe-${Date.now()}.txt`
@@ -130,27 +134,39 @@ class WebDavClientImpl implements WebDavClient {
       if (back !== 'probe') throw new Error(`readback mismatch: got ${back}`)
       await this.client.deleteFile(this.abs(probeRel)).catch(() => undefined)
     })
-    // 调试输出（临时）
-    if (process.env.DBG_WEBDAV) console.log('[testConnection]', JSON.stringify(steps, null, 2))
 
+    // 能力探测放在最后：不产生副作用（OPTIONS，不再对真实目录 LOCK）。
+    // 旧实现先 LOCK 根目录再 unlock，unlock 失败就会把整棵子树锁住，
+    // 随后的 MKCOL/PUT 全部 423 —— 测试把自己测挂了。
+    const caps = await this.probeCapabilities()
+
+    if (process.env.DBG_WEBDAV) console.log('[testConnection]', JSON.stringify(steps, null, 2))
     return { ok: steps.every((s) => s.ok), steps, capabilities: caps }
   }
 
   private async probeCapabilities(): Promise<ServerCapabilities> {
     if (this.capabilities) return this.capabilities
     let supportsLock = false
+    let supportsIfHeader = false
     let server: string | null = null
     try {
-      const res = await this.client.lock(this.root, { timeout: 'Second-10' } as Parameters<WebDAVClient['lock']>[1])
-      supportsLock = !!res?.token
-      server = null
-      if (supportsLock && res.token) {
-        await this.client.unlock(this.root, res.token).catch(() => undefined)
+      const res = await this.client.customRequest(this.root, { method: 'OPTIONS' })
+      const headers = (res.headers ?? {}) as unknown as Record<string, string>
+      const pick = (name: string): string => {
+        const key = Object.keys(headers).find((k) => k.toLowerCase() === name)
+        return key ? String(headers[key]) : ''
       }
+      const dav = pick('dav').toLowerCase()
+      const allow = pick('allow').toUpperCase()
+      // DAV: 2 表示支持锁定；也有服务端只在 Allow 里列 LOCK
+      supportsLock = dav.split(',').map((s) => s.trim()).includes('2') || /(^|,)\s*LOCK\s*(,|$)/.test(allow)
+      supportsIfHeader = dav.includes('2') || allow.includes('LOCK')
+      server = pick('server') || null
     } catch {
       supportsLock = false
+      supportsIfHeader = true
     }
-    this.capabilities = { supportsLock, supportsIfHeader: true, server }
+    this.capabilities = { supportsLock, supportsIfHeader, server }
     return this.capabilities
   }
 

@@ -63,6 +63,16 @@ window.__ModuleLoader__.load({
           tls: '忽略 TLS 证书错误（仅限内网自签证书）',
           save: '保存连接',
           saved: '已保存',
+          server: '服务端',
+          http: {
+            401: '认证失败：账号或密码不正确。坚果云 / Nextcloud 请用应用专用密码；改过密码的话在密码框重新输入并保存',
+            403: '没有写权限：账号只读，或该目录被限制',
+            404: '目标不存在：地址可能少了一层路径',
+            405: '服务端不允许这个操作',
+            409: '父目录不存在，或路径冲突',
+            423: '远端被锁定：多为上一次测试/同步残留的 LOCK，等 10–60 秒、或在服务端解除锁后重试',
+            507: '远端空间不足',
+          },
         },
         scope: {
           bundles: '插件',
@@ -150,6 +160,16 @@ window.__ModuleLoader__.load({
           tls: 'Ignore TLS errors (self-signed intranet only)',
           save: 'Save connection',
           saved: 'Saved',
+          server: 'Server',
+          http: {
+            401: 'Authentication failed: wrong username or password. Use an app password for Nutstore / Nextcloud, and re-enter the password here if it changed',
+            403: 'No write permission: read-only account or restricted folder',
+            404: 'Not found: the URL may be missing a path segment',
+            405: 'The server rejects this operation',
+            409: 'Missing parent collection or path conflict',
+            423: 'Locked on the server: usually a LOCK left by an earlier test/sync. Wait 10–60s or release it on the server',
+            507: 'Not enough remote space',
+          },
         },
         scope: {
           bundles: 'Plugins',
@@ -386,7 +406,8 @@ window.__ModuleLoader__.load({
     .wds-btn-danger { color: var(--wds-danger); border-color: color-mix(in srgb, var(--wds-danger) 45%, transparent); }
 
     .wds-status { margin-top: 12px; padding: 8px 11px; border-radius: var(--dsw-radius-sm, 8px);
-      font-size: 12px; border: 1px solid var(--wds-line); background: var(--wds-surface-soft); display: none; }
+      font-size: 12px; border: 1px solid var(--wds-line); background: var(--wds-surface-soft); display: none;
+      white-space: pre-line; }
     .wds-status.show { display: block; }
     .wds-status.ok { border-color: color-mix(in srgb, var(--wds-success) 45%, transparent);
       color: var(--wds-success); }
@@ -561,11 +582,19 @@ window.__ModuleLoader__.load({
                 ignoreTlsErrors: tls.input.checked,
               },
             })
-            const steps = (r.steps || []).map((s) => s.step + (s.ok ? ' ✓' : ' ✗')).join(' · ')
-            if (r.ok) state.show('ok', t.connect.ok + (steps ? ' — ' + steps : ''))
-            else {
-              const detail = (r.steps || []).filter((s) => !s.ok).map((s) => s.step + ': ' + s.detail).join('; ')
-              state.show('err', t.connect.fail + (detail ? ' — ' + detail : ''))
+            const steps = r.steps || []
+            const marks = steps.map((s) => s.step + (s.ok ? ' ✓' : ' ✗')).join(' · ')
+            const server = r.capabilities && r.capabilities.server
+            if (r.ok) {
+              state.show('ok', t.connect.ok + (marks ? ' — ' + marks : '') + (server ? ' · ' + t.connect.server + ': ' + server : ''))
+            } else {
+              // 每个失败步骤只报「步骤 + 状态码」，提示按码去重后单独一行，避免同一句话刷四遍
+              const hints = t.connect.http || {}
+              const failed = steps.filter((s) => !s.ok)
+              const marks = failed.map((s) => s.step + ' ✗ ' + String(s.detail || '').replace(/^HTTP\s+/, '')).join(' · ')
+              const codes = [...new Set(failed.map((s) => String(s.detail || '').replace(/^HTTP\s+/, '').trim()))]
+              const hint = codes.map((code) => hints[code]).filter(Boolean).join('；')
+              state.show('err', t.connect.fail + (marks ? ' — ' + marks : '') + (hint ? '\n' + hint : ''))
             }
           } catch (err) {
             state.show('err', t.common.error + ': ' + err.message)

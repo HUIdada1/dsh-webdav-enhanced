@@ -15,7 +15,7 @@ import { createSyncEngine, type SyncEngineImpl } from './core/sync.js'
 import { createWebDavClient } from './core/webdav.js'
 import { WebDavSyncStore } from './core/webdav-store.js'
 import { registerHttpRoutes, type HttpContext, type HttpRuntime, type WebServerLike } from './http.js'
-import type { ResolvedEnv } from './types.js'
+import type { PluginConfig, ResolvedEnv } from './types.js'
 
 export const name = 'webdav-enhanced'
 
@@ -156,19 +156,41 @@ export function apply(ctx: unknown, config: Config) {
     if (!stored && config.connection.password) creds.write(config.connection.password)
     runtime.password = stored || config.connection.password
 
-    store.update({
-      connection: {
+    // 关键：设置页保存的值以本地 store 为准。
+    // cordis 配置里的默认值（空 URL、默认 scope…）不能反过来把用户填的东西清掉，
+    // 所以只有「显式给了非默认值」时才覆盖，否则原样保留。
+    const previous = store.load()
+    const patch: Partial<PluginConfig> = {
+      machineId: config.machineId || previous.machineId,
+      env,
+    }
+    if (config.connection.url.trim() || config.connection.username.trim()) {
+      patch.connection = {
         url: config.connection.url,
         username: config.connection.username,
         passwordRef: config.connection.passwordRef,
-      },
-      options: config.options,
-      schedule: config.schedule,
-      scope: config.scope,
-      conflictPolicy: config.conflictPolicy,
-      machineId: config.machineId || store.load().machineId,
-      env,
-    })
+      }
+    }
+    const opt = config.options
+    if (opt.timeoutMs !== 30000 || opt.remoteRoot !== REMOTE_ROOT || opt.ignoreTlsErrors) {
+      patch.options = opt
+    }
+    const sched = config.schedule
+    if (sched.enabled || sched.intervalHours !== 1 || sched.direction !== 'both') {
+      patch.schedule = sched
+    }
+    const scope = config.scope
+    const scopeIsDefault =
+      scope.bundles.mode === 'all' &&
+      scope.skills.mode === 'all' &&
+      scope.configs.mode === 'none' &&
+      scope.bundles.exclude.length === 0 &&
+      scope.skills.exclude.length === 0 &&
+      scope.configs.includeKeys.length === 0
+    if (!scopeIsDefault) patch.scope = scope
+    if (config.conflictPolicy !== 'merge-backup') patch.conflictPolicy = config.conflictPolicy
+
+    store.update(patch)
 
     runtime.store = store
     runtime.creds = creds

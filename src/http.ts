@@ -98,7 +98,7 @@ async function dispatch(
     case '/status':
       return getStatus(ctx)
     case '/test':
-      return testConnection(req)
+      return testConnection(req, ctx)
     case '/items':
       return listItems(url, ctx)
     case '/sync':
@@ -201,12 +201,17 @@ async function getStatus(ctx: HttpContext): Promise<unknown> {
   }
 }
 
-async function testConnection(req: IncomingMessage): Promise<unknown> {
+async function testConnection(req: IncomingMessage, ctx: HttpContext): Promise<unknown> {
   const body = await readJson(req)
+  // 页面上密码框保存后会被清空（提示「留空表示不修改」），
+  // 这里必须回退到本地凭据，否则再点一次「测试连接」等于拿空密码去认证。
+  const rt = await ctx.ready()
+  const typed = typeof body.password === 'string' ? body.password : ''
+  const password = typed !== '' ? typed : rt.getPassword()
   const client = createWebDavClient({
     url: String(body.url ?? ''),
     username: String(body.username ?? ''),
-    password: String(body.password ?? ''),
+    password,
     timeoutMs: typeof body.timeoutMs === 'number' ? body.timeoutMs : undefined,
     ignoreTlsErrors: body.ignoreTlsErrors === true,
     remoteRoot: typeof body.remoteRoot === 'string' && body.remoteRoot ? body.remoteRoot : '/dsh-sync/',

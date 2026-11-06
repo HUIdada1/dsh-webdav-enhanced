@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { apply, Config, name } from '../src/host.js'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -12,6 +13,11 @@ interface CapturedRoute {
   handler: unknown
 }
 
+interface CapturedTool {
+  name: string
+  execute: () => Promise<unknown>
+}
+
 /**
  * 最小 host ctx：模拟 cordis 的服务注入。
  * 真实 cordis 里直接读 ctx.webServer 会抛 "cannot get property without inject"，
@@ -20,6 +26,7 @@ interface CapturedRoute {
 function makeCtx() {
   const routes: CapturedRoute[] = []
   const tools: string[] = []
+  const handlers: CapturedTool[] = []
   const events: string[] = []
   const injected: string[] = []
 
@@ -31,8 +38,9 @@ function makeCtx() {
       },
     },
     tools: {
-      register: (tool: { name: string }) => {
+      register: (tool: CapturedTool) => {
         tools.push(tool.name)
+        handlers.push(tool)
       },
     },
   }
@@ -47,7 +55,7 @@ function makeCtx() {
     },
   }
 
-  return { routes, tools, events, injected, ctx }
+  return { routes, tools, handlers, events, injected, ctx }
 }
 
 describe('host', () => {
@@ -103,6 +111,43 @@ describe('host', () => {
     const { ctx, events } = makeCtx()
     apply(ctx, Config({}))
     expect(events).toContain('dispose')
+  })
+
+  it('does not wipe what the settings page saved when cordis config is default', async () => {
+    // 回归：旧实现每次启动都拿 cordis 的空默认值覆盖本地 store，
+    // 设置页填好的地址/账号会在重启后消失。
+    const home = mkdtempSync(path.join(tmpdir(), 'dsh-host-'))
+    const dataDir = path.join(home, '.webdav-enhanced')
+    mkdirSync(path.join(home, 'profiles', 'web'), { recursive: true })
+    mkdirSync(dataDir, { recursive: true })
+    const file = path.join(dataDir, 'webdav-enhanced.json')
+    writeFileSync(
+      file,
+      JSON.stringify({
+        connection: { url: 'https://dav.example.com/dsh/', username: 'alice', passwordRef: 'credentials' },
+        options: { timeoutMs: 45000, remoteRoot: '/custom/', ignoreTlsErrors: true },
+        schedule: { enabled: true, intervalHours: 3, direction: 'upload' },
+      }),
+    )
+
+    const previous = process.env.DSH_HOME
+    process.env.DSH_HOME = home
+    try {
+      const { ctx, handlers } = makeCtx()
+      apply(ctx, Config({}))
+      const status = handlers.find((t) => t.name === 'webdav_sync_status')
+      await status!.execute()
+      const saved = JSON.parse(readFileSync(file, 'utf8'))
+      expect(saved.connection.url).toBe('https://dav.example.com/dsh/')
+      expect(saved.connection.username).toBe('alice')
+      expect(saved.options.timeoutMs).toBe(45000)
+      expect(saved.options.remoteRoot).toBe('/custom/')
+      expect(saved.schedule.enabled).toBe(true)
+      expect(saved.schedule.direction).toBe('upload')
+    } finally {
+      process.env.DSH_HOME = previous ?? ''
+      rmSync(home, { recursive: true, force: true })
+    }
   })
 
   it('client.js is a dsh module wired to both config slots', () => {
