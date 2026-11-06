@@ -85,11 +85,17 @@ interface ToolRegistration {
   execute: () => Promise<unknown>
 }
 
+/** cordis 服务容器：只有经过 ctx.inject 声明后才能访问 */
+interface ServiceCtx {
+  tools?: { register(tool: ToolRegistration): void }
+  webServer?: WebServerLike
+}
+
 /** dsh 宿主 ctx 的最小契约 */
 interface HostCtx {
-  tools?: { register(tool: ToolRegistration): void }
+  /** cordis 服务注入：访问服务前必须声明，否则抛 "cannot get property without inject" */
+  inject(services: string[], callback: (ctx: ServiceCtx) => void): void
   on?(event: string, fn: () => void): void
-  webServer?: WebServerLike
 }
 
 interface Runtime {
@@ -209,45 +215,54 @@ export function apply(ctx: unknown, config: Config) {
     stopScheduler,
   }
 
-  if (host.webServer) {
-    registerHttpRoutes(host.webServer, httpContext)
-  } else {
-    pushLog('未检测到 webServer 服务，设置页 API 不可用（仅 Agent 工具可用）')
-  }
-
-  // ---------- Agent 工具 ----------
-  host.tools?.register({
-    name: 'webdav_sync_status',
-    description: '查询 WebDAV 同步状态：上次同步时间、当前锁持有者、环境探测结果',
-    parameters: {},
-    output: { schema: { type: 'object' } },
-    async execute() {
-      await ensureReady()
-      const cfg = runtime.store!.load()
-      return {
-        lastSyncAt: cfg.lastSyncAt,
-        machineId: cfg.machineId,
-        env: cfg.env,
-        schedule: cfg.schedule,
-        conflictPolicy: cfg.conflictPolicy,
-      }
-    },
+  // ---------- 服务注入 ----------
+  // cordis 的 ctx 是代理：直接读 ctx.webServer / ctx.tools 会抛
+  // "cannot get property without inject"，必须先声明再在回调里访问。
+  host.inject(['webServer'], (services) => {
+    if (!services.webServer) {
+      pushLog('webServer 服务不可用，设置页 API 未注册')
+      return
+    }
+    registerHttpRoutes(services.webServer, httpContext)
   })
 
-  host.tools?.register({
-    name: 'webdav_sync_now',
-    description: '立即执行一次 WebDAV 同步（方向与冲突策略按当前配置）',
-    parameters: {},
-    output: { schema: { type: 'object' } },
-    async execute() {
-      await ensureReady()
-      const report = await buildEngine().runOnce('manual')
-      pushLog(
-        `手动同步完成：上传 ${report.uploaded.length}，下载 ${report.downloaded.length}，` +
-          `冲突 ${report.conflicts.length}，错误 ${report.errors.length}`,
-      )
-      return report
-    },
+  host.inject(['tools'], (services) => {
+    const tools = services.tools
+    if (!tools) return
+
+    tools.register({
+      name: 'webdav_sync_status',
+      description: '查询 WebDAV 同步状态：上次同步时间、当前锁持有者、环境探测结果',
+      parameters: {},
+      output: { schema: { type: 'object' } },
+      async execute() {
+        await ensureReady()
+        const cfg = runtime.store!.load()
+        return {
+          lastSyncAt: cfg.lastSyncAt,
+          machineId: cfg.machineId,
+          env: cfg.env,
+          schedule: cfg.schedule,
+          conflictPolicy: cfg.conflictPolicy,
+        }
+      },
+    })
+
+    tools.register({
+      name: 'webdav_sync_now',
+      description: '立即执行一次 WebDAV 同步（方向与冲突策略按当前配置）',
+      parameters: {},
+      output: { schema: { type: 'object' } },
+      async execute() {
+        await ensureReady()
+        const report = await buildEngine().runOnce('manual')
+        pushLog(
+          `手动同步完成：上传 ${report.uploaded.length}，下载 ${report.downloaded.length}，` +
+            `冲突 ${report.conflicts.length}，错误 ${report.errors.length}`,
+        )
+        return report
+      },
+    })
   })
 
   // ---------- 定时同步 ----------
@@ -278,4 +293,10 @@ export function apply(ctx: unknown, config: Config) {
   })
 }
 
-export default apply
+/*
+ * 注意：这里绝对不能加 `export default apply`。
+ * cordis 的 plugin() 里 `runtime.Config = plugin.Config`：loader 若拿到 default
+ * 导出的裸函数，函数上没有 Config，配置校验被跳过，apply 收到的 config 就是
+ * undefined，插件会在挂载瞬间抛错并标记为 "did not activate"。
+ * 必须让 loader 拿到模块命名空间对象（含 Config + apply）。
+ */

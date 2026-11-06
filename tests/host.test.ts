@@ -12,32 +12,42 @@ interface CapturedRoute {
   handler: unknown
 }
 
-/** 最小 host ctx：只记录 apply() 注册了什么，不启动任何真实服务 */
+/**
+ * 最小 host ctx：模拟 cordis 的服务注入。
+ * 真实 cordis 里直接读 ctx.webServer 会抛 "cannot get property without inject"，
+ * 所以 apply() 必须先 inject 再在回调里访问。
+ */
 function makeCtx() {
   const routes: CapturedRoute[] = []
   const tools: string[] = []
   const events: string[] = []
-  return {
-    routes,
-    tools,
-    events,
-    ctx: {
-      webServer: {
-        register: (route: CapturedRoute) => {
-          routes.push(route)
-          return () => undefined
-        },
+  const injected: string[] = []
+
+  const services = {
+    webServer: {
+      register: (route: CapturedRoute) => {
+        routes.push(route)
+        return () => undefined
       },
-      tools: {
-        register: (tool: { name: string }) => {
-          tools.push(tool.name)
-        },
-      },
-      on: (event: string) => {
-        events.push(event)
+    },
+    tools: {
+      register: (tool: { name: string }) => {
+        tools.push(tool.name)
       },
     },
   }
+
+  const ctx = {
+    inject: (names: string[], callback: (s: typeof services) => void) => {
+      injected.push(...names)
+      callback(services)
+    },
+    on: (event: string) => {
+      events.push(event)
+    },
+  }
+
+  return { routes, tools, events, injected, ctx }
 }
 
 describe('host', () => {
@@ -48,9 +58,30 @@ describe('host', () => {
     expect(['function', 'object']).toContain(typeof Config)
   })
 
+  it('does not export a default plugin (cordis would lose Config)', () => {
+    // 有 default 导出时 loader 会拿到裸函数，函数上没有 Config，
+    // resolveConfig 被跳过 → apply 收到 undefined → 插件 "did not activate"
+    const source = readFileSync(path.join(here, '..', 'src', 'host.ts'), 'utf8')
+    expect(source).not.toMatch(/^export default /m)
+  })
+
   it('Config exposes profile with desktop default', () => {
     const cfg = Config({})
     expect(cfg.profile).toBe('desktop')
+  })
+
+  it('Config fills defaults for an empty config object', () => {
+    const cfg = Config({})
+    expect(cfg.connection.url).toBe('')
+    expect(cfg.schedule.enabled).toBe(false)
+    expect(cfg.scope.configs.mode).toBe('none')
+  })
+
+  it('apply() declares the services it touches via inject', () => {
+    const { ctx, injected } = makeCtx()
+    apply(ctx, Config({}))
+    expect(injected).toContain('webServer')
+    expect(injected).toContain('tools')
   })
 
   it('apply() registers the settings-page HTTP route', () => {
@@ -74,15 +105,13 @@ describe('host', () => {
     expect(events).toContain('dispose')
   })
 
-  it('apply() survives a host without webServer', () => {
-    expect(() => apply({ tools: { register: () => undefined } }, Config({}))).not.toThrow()
-  })
-
   it('client.js is a dsh module wired to the settings slot', () => {
     const clientJs = readFileSync(path.join(here, '..', 'src', 'client.js'), 'utf8')
     expect(clientJs).toContain('__ModuleLoader__')
     expect(clientJs).toContain('plugins.bundle.config')
     expect(clientJs).toContain('/api/webdav-sync')
+    // slot key 必须是包名，和 @michengai/dsh-archive-manager 的写法一致
+    expect(clientJs).toContain("key: 'dsh-webdav-sync'")
     // 旧的全局挂载机制已废弃
     expect(clientJs).not.toContain('__webdavSyncMount')
   })
