@@ -115,4 +115,14 @@ describe('host', () => {
     // 旧的全局挂载机制已废弃
     expect(clientJs).not.toContain('__webdavSyncMount')
   })
+
+  it('package manifest declares a boot-loaded web client bundle', () => {
+    const pkg = JSON.parse(readFileSync(path.join(here, '..', 'package.json'), 'utf8'))
+    expect(pkg.dsh.bundle.patch).toBe('./cordis.patch.yml')
+    expect(pkg.dsh.client.platform).toBe('web')
+    // 没有 immediately 时 dsh 只在 application batch 里 preload，
+    // 不会 materialize，apply 永不执行 → 设置页不出现
+    expect(pkg.dsh.client.immediately).toBe(true)
+    expect(pkg.exports['./client']).toBeDefined()
+  })
 })

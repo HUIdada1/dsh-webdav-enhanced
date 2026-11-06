@@ -44,9 +44,9 @@ dsh plugin --profile web add dsh-webdav-sync
 dsh plugin --profile desktop add link:/path/to/dsh-webdav-enhanced
 ```
 
-装好后重启 dsh，进入 **设置 → 插件 → WebDAV 同步**。
+装好后重启 dsh，进入左侧边栏的 **插件** → 滚到 **已安装插件** → 点开 **dsh-webdav-sync**，配置面板就在插件详情页里。
 
-> 设置页挂在 `plugins.bundle.config` 插槽上，和 `dsh-client-auto-continue` 等插件用的是同一套机制。
+> 注意：配置页挂在 `plugins.bundle.config` 插槽上，渲染在**插件详情页**，不是设置里的独立条目。
 
 ## 快速开始
 

@@ -44,9 +44,9 @@ From a local checkout (link install — rebuild, restart, done):
 dsh plugin --profile desktop add link:/path/to/dsh-webdav-enhanced
 ```
 
-Restart dsh, then open **Settings → Plugins → WebDAV Sync**.
+Restart dsh, then open **Plugins** in the left sidebar → scroll to **Installed plugins** → click **dsh-webdav-sync**. The configuration panel renders inside the plugin's detail page.
 
-> The settings page mounts on the `plugins.bundle.config` slot — the same mechanism `dsh-client-auto-continue` and friends use.
+> The config page mounts on the `plugins.bundle.config` slot, so it lives in the **plugin detail page**, not as a standalone Settings entry.
 
 ## Quick start
 
