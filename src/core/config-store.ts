@@ -5,6 +5,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { hostname } from 'node:os'
 import path from 'node:path'
 import type { PluginConfig, ResolvedEnv, SyncScope } from '../types.js'
 
@@ -40,8 +41,6 @@ export function generateMachineId(): string {
 
 function safeHostname(): string {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { hostname } = require('node:os') as typeof import('node:os')
     return hostname().toLowerCase().replace(/[^\w-]+/g, '_').slice(0, 24) || 'machine'
   } catch {
     return 'machine'

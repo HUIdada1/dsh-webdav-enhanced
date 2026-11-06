@@ -1,19 +1,27 @@
 /*
- * M9 宿主入口：Cordis bundle 标准结构（name + Config + apply）。
+ * 宿主入口：Cordis bundle 标准结构（name + Config + apply）。
  * - Config 用 Schemastery 定义，默认值齐全，改配置触发热更新。
- * - 注册设置页（client.js）、Agent 工具（webdav_sync_status / webdav_sync_now）。
- * - 持有 SyncEngine 与 ConfigStore 生命周期；卸载时清理定时器。
+ * - 注册 HTTP 路由（/api/webdav-sync/*）供设置页调用，另注册两个 Agent 工具。
+ * - 持有 SyncEngine / ConfigStore / CredentialStore 生命周期；卸载时清理定时器。
  */
-import path from 'node:path'
-import { readFileSync } from 'node:fs'
+import os from 'node:os'
 import Schema from 'schemastery'
 import { resolveEnv } from './core/env.js'
 import { ConfigStore, defaultConfig, generateMachineId } from './core/config-store.js'
+import { CredentialStore } from './core/credentials.js'
 import { createSyncEngine, type SyncEngineImpl } from './core/sync.js'
 import { createWebDavClient } from './core/webdav.js'
 import { WebDavSyncStore } from './core/webdav-store.js'
+import { registerHttpRoutes, type HttpContext, type HttpRuntime, type WebServerLike } from './http.js'
+import type { ResolvedEnv } from './types.js'
 
 export const name = 'webdav-sync'
+
+/** 远端同步根目录（与 README 的目录布局一致） */
+const REMOTE_ROOT = '/dsh-sync/'
+
+/** 内存中保留的最近日志条数 */
+const MAX_LOGS = 50
 
 export interface Config {
   connection: {
@@ -34,6 +42,8 @@ export interface Config {
   }
   conflictPolicy: 'merge-backup' | 'ask' | 'local-wins' | 'remote-wins'
   machineId: string
+  /** 要同步的 dsh profile 名（桌面版为 desktop，Web 版为 web） */
+  profile: string
 }
 
 export const Config = Schema.object({
@@ -64,45 +74,64 @@ export const Config = Schema.object({
   }),
   conflictPolicy: Schema.union(['merge-backup', 'ask', 'local-wins', 'remote-wins'] as const).default('merge-backup'),
   machineId: Schema.string().default(generateMachineId()),
+  profile: Schema.string().default('desktop'),
 })
 
-// 运行时上下文（避免重复创建）
-interface Runtime {
-  store: ConfigStore | null
-  engine: SyncEngineImpl | null
-  clientJs: string | null
+interface ToolRegistration {
+  name: string
+  description: string
+  parameters: Record<string, unknown>
+  output: { schema: Record<string, unknown> }
+  execute: () => Promise<unknown>
 }
 
-const runtime: Runtime = { store: null, engine: null, clientJs: null }
+/** dsh 宿主 ctx 的最小契约 */
+interface HostCtx {
+  tools?: { register(tool: ToolRegistration): void }
+  on?(event: string, fn: () => void): void
+  webServer?: WebServerLike
+}
 
-function readClientJs(): string {
-  if (runtime.clientJs) return runtime.clientJs
-  // lib/host.js 与 client.js 同级（构建后）；开发时从 src/client.js 读
-  const candidates = [
-    path.join(__dirname, 'client.js'),
-    path.join(__dirname, '..', 'src', 'client.js'),
-  ]
-  for (const p of candidates) {
-    try {
-      runtime.clientJs = readFileSync(p, 'utf8')
-      return runtime.clientJs
-    } catch {
-      /* 尝试下一个 */
-    }
-  }
-  return '// client.js not found'
+interface Runtime {
+  store: ConfigStore | null
+  creds: CredentialStore | null
+  env: ResolvedEnv | null
+  engine: SyncEngineImpl | null
+  password: string
+  logs: { at: string; message: string }[]
 }
 
 export function apply(ctx: unknown, config: Config) {
-  // 延迟初始化（避免启动时阻塞宿主）
-  let initialized = false
+  const host = ctx as HostCtx
+  const runtime: Runtime = {
+    store: null,
+    creds: null,
+    env: null,
+    engine: null,
+    password: config.connection.password,
+    logs: [],
+  }
 
-  async function ensureInit() {
-    if (initialized) return
-    initialized = true
-    const env = await resolveEnv({ profile: 'web' })
-    const store = new ConfigStore(env.dshHome || process.env.DSH_HOME || require('node:os').homedir())
-    // 合并 cordis 配置到本地存储
+  let initPromise: Promise<void> | null = null
+
+  function pushLog(message: string): void {
+    runtime.logs.push({ at: new Date().toISOString(), message })
+    if (runtime.logs.length > MAX_LOGS) runtime.logs.splice(0, runtime.logs.length - MAX_LOGS)
+  }
+
+  async function init(): Promise<void> {
+    if (runtime.store) return
+    const env = await resolveEnv({ profile: config.profile })
+    const dshHome = env.dshHome || process.env.DSH_HOME || os.homedir()
+
+    const store = new ConfigStore(dshHome)
+    const creds = new CredentialStore(dshHome)
+
+    // 本地凭据文件优先；首次运行把 cordis 配置里的明文密码迁移过去
+    const stored = creds.read()
+    if (!stored && config.connection.password) creds.write(config.connection.password)
+    runtime.password = stored || config.connection.password
+
     store.update({
       connection: {
         url: config.connection.url,
@@ -115,104 +144,138 @@ export function apply(ctx: unknown, config: Config) {
       machineId: config.machineId || store.load().machineId,
       env,
     })
+
     runtime.store = store
+    runtime.creds = creds
+    runtime.env = env
+    pushLog(`环境探测完成：${env.dshHome || '(未找到)'} [${env.generation}]`)
   }
 
-  // 暴露工具接口（dsh-tools 风格）
-  const anyCtx = ctx as {
-    tools?: { register: (t: unknown) => void }
-    on?: (event: string, fn: () => void) => void
-    inject?: string[]
+  async function ensureReady(): Promise<HttpRuntime> {
+    if (!initPromise) {
+      initPromise = init().catch((err: unknown) => {
+        initPromise = null
+        throw err
+      })
+    }
+    await initPromise
+    return {
+      store: runtime.store!,
+      creds: runtime.creds!,
+      env: runtime.env!,
+      remoteRoot: REMOTE_ROOT,
+      getPassword: () => runtime.password,
+      setPassword: (password: string) => {
+        runtime.password = password
+      },
+    }
   }
 
-  // 工具：状态查询
-  anyCtx.tools?.register({
+  function buildEngine(): SyncEngineImpl {
+    const cfg = runtime.store!.load()
+    const conn = {
+      url: cfg.connection.url,
+      username: cfg.connection.username,
+      password: runtime.password,
+      remoteRoot: REMOTE_ROOT,
+    }
+    const client = createWebDavClient(conn)
+    const store = new WebDavSyncStore(conn)
+    return createSyncEngine({
+      env: runtime.env!,
+      configStore: runtime.store!,
+      store,
+      client,
+    }) as SyncEngineImpl
+  }
+
+  function stopScheduler(): void {
+    runtime.engine?.stopScheduler()
+    runtime.engine = null
+  }
+
+  // ---------- HTTP 路由（设置页） ----------
+  const httpContext: HttpContext = {
+    ready: ensureReady,
+    reprobe: async () => {
+      await ensureReady()
+      const env = await resolveEnv({ profile: config.profile })
+      runtime.env = env
+      runtime.store!.updateEnv(env)
+      pushLog(`重新探测环境：${env.dshHome || '(未找到)'} [${env.generation}]`)
+      return env
+    },
+    logs: () => runtime.logs,
+    stopScheduler,
+  }
+
+  if (host.webServer) {
+    registerHttpRoutes(host.webServer, httpContext)
+  } else {
+    pushLog('未检测到 webServer 服务，设置页 API 不可用（仅 Agent 工具可用）')
+  }
+
+  // ---------- Agent 工具 ----------
+  host.tools?.register({
     name: 'webdav_sync_status',
     description: '查询 WebDAV 同步状态：上次同步时间、当前锁持有者、环境探测结果',
     parameters: {},
     output: { schema: { type: 'object' } },
     async execute() {
-      await ensureInit()
+      await ensureReady()
       const cfg = runtime.store!.load()
       return {
         lastSyncAt: cfg.lastSyncAt,
         machineId: cfg.machineId,
         env: cfg.env,
         schedule: cfg.schedule,
+        conflictPolicy: cfg.conflictPolicy,
       }
     },
   })
 
-  // 工具：立即同步
-  anyCtx.tools?.register({
+  host.tools?.register({
     name: 'webdav_sync_now',
-    description: '立即执行一次 WebDAV 同步（双向）',
+    description: '立即执行一次 WebDAV 同步（方向与冲突策略按当前配置）',
     parameters: {},
     output: { schema: { type: 'object' } },
     async execute() {
-      await ensureInit()
-      const cfg = runtime.store!.load()
-      const client = createWebDavClient({
-        url: cfg.connection.url,
-        username: cfg.connection.username,
-        password: config.connection.password,
-        remoteRoot: '/dsh-sync/',
-      })
-      const syncStore = new WebDavSyncStore({
-        url: cfg.connection.url,
-        username: cfg.connection.username,
-        password: config.connection.password,
-      })
-      const engine = createSyncEngine({
-        env: cfg.env!,
-        configStore: runtime.store!,
-        store: syncStore,
-        client,
-      })
-      const report = await engine.runOnce('manual')
+      await ensureReady()
+      const report = await buildEngine().runOnce('manual')
+      pushLog(
+        `手动同步完成：上传 ${report.uploaded.length}，下载 ${report.downloaded.length}，` +
+          `冲突 ${report.conflicts.length}，错误 ${report.errors.length}`,
+      )
       return report
     },
   })
 
-  // 启动定时调度（若开启）
+  // ---------- 定时同步 ----------
   if (config.schedule.enabled) {
-    void ensureInit().then(() => {
-      const cfg = runtime.store!.load()
-      const client = createWebDavClient({
-        url: cfg.connection.url,
-        username: cfg.connection.username,
-        password: config.connection.password,
-        remoteRoot: '/dsh-sync/',
+    void ensureReady()
+      .then(() => {
+        runtime.engine = buildEngine()
+        runtime.engine.startScheduler(config.schedule.intervalHours, (report) => {
+          pushLog(
+            `定时同步完成：上传 ${report.uploaded.length}，下载 ${report.downloaded.length}，` +
+              `冲突 ${report.conflicts.length}，错误 ${report.errors.length}`,
+          )
+        })
+        pushLog(`定时同步已启动：每 ${config.schedule.intervalHours} 小时`)
       })
-      const syncStore = new WebDavSyncStore({
-        url: cfg.connection.url,
-        username: cfg.connection.username,
-        password: config.connection.password,
+      .catch((err: unknown) => {
+        pushLog(`定时同步启动失败：${(err as Error).message}`)
       })
-      runtime.engine = createSyncEngine({
-        env: cfg.env!,
-        configStore: runtime.store!,
-        store: syncStore,
-        client,
-      }) as SyncEngineImpl
-      runtime.engine.startScheduler(config.schedule.intervalHours, (_report) => {
-        // 结果仅记录到本地存储，UI 主动查询
-      })
-    })
   }
 
-  // 卸载清理
-  anyCtx.on?.('dispose', () => {
-    runtime.engine?.stopScheduler()
-    runtime.engine = null
+  // ---------- 卸载清理 ----------
+  host.on?.('dispose', () => {
+    stopScheduler()
     runtime.store = null
-    initialized = false
+    runtime.creds = null
+    runtime.env = null
+    initPromise = null
   })
-
-  // 返回一个对象，dsh 可能用于设置页注册
-  return {
-    clientJs: readClientJs(),
-  }
 }
 
 export default apply

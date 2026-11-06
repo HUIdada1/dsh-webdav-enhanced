@@ -4,3 +4,5 @@ lib/
 .DS_Store
 .box-agent/
 .box-agent-scratch/
+.webdav-sync-tmp/
+.workbuddy-ai/

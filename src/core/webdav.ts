@@ -7,6 +7,7 @@
  */
 import { createWriteStream, existsSync, mkdirSync, statSync } from 'node:fs'
 import { mkdir, rename, unlink, writeFile, readFile } from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { createClient, AuthType, type Headers, type LockResponse, type WebDAVClient } from 'webdav'
 import {
@@ -308,7 +309,7 @@ class WebDavClientImpl implements WebDavClient {
       startedAt: new Date(now).toISOString(),
       expiresAt: new Date(now + ttlMs).toISOString(),
     })
-    await this.putFile(rel, await this.writeTmp(body))
+    await this.withTmpFile(body, (tmp) => this.putFile(rel, tmp))
     return {
       machineId,
       acquiredAt: new Date().toISOString(),
@@ -325,7 +326,8 @@ class WebDavClientImpl implements WebDavClient {
   // ---------- helpers ----------
 
   private tmpDir(): string {
-    const dir = path.join(process.cwd(), '.webdav-sync-tmp')
+    // 用系统临时目录：早期版本落在 process.cwd()，会往用户项目里堆垃圾
+    const dir = path.join(os.tmpdir(), 'dsh-webdav-sync')
     mkdirSync(dir, { recursive: true })
     return dir
   }
@@ -334,6 +336,16 @@ class WebDavClientImpl implements WebDavClient {
     const p = path.join(this.tmpDir(), `${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`)
     await writeFile(p, content, 'utf8')
     return p
+  }
+
+  /** 写临时文件执行 fn，结束后无论成败都清理 */
+  private async withTmpFile<T>(content: string, fn: (tmpPath: string) => Promise<T>): Promise<T> {
+    const p = await this.writeTmp(content)
+    try {
+      return await fn(p)
+    } finally {
+      await unlink(p).catch(() => undefined)
+    }
   }
 }
 
