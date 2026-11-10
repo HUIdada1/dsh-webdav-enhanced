@@ -59,6 +59,48 @@ describe('pack', () => {
   })
 })
 
+describe('bundle 运行时代码（lib/dist）必须参与 hash 与打包', () => {
+  function makeBundleDir(name: string): { dir: string; entry: LocalEntry } {
+    const dir = path.join(root, name)
+    mkdirSync(path.join(dir, 'lib'), { recursive: true })
+    mkdirSync(path.join(dir, 'node_modules', 'dep'), { recursive: true })
+    writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name, version: '1.0.0' }))
+    writeFileSync(path.join(dir, 'lib', 'index.js'), 'export const v = 1\n')
+    writeFileSync(path.join(dir, 'node_modules', 'dep', 'x.js'), 'module')
+    return {
+      dir,
+      entry: {
+        kind: 'bundle',
+        name,
+        version: '1.0.0',
+        sourceDir: dir,
+        hash: '',
+        sizeBytes: 0,
+        modifiedAt: new Date().toISOString(),
+      },
+    }
+  }
+
+  it('只含 package.json + lib/index.js 时，改 lib 内容 hash 必须变化', async () => {
+    const { dir, entry } = makeBundleDir('bundle-lib')
+    const h1 = await hashDirectory(entry)
+    writeFileSync(path.join(dir, 'lib', 'index.js'), 'export const v = 2\n')
+    const h2 = await hashDirectory(entry)
+    expect(h2).not.toBe(h1)
+  })
+
+  it('pack 的 zip 解压后含 lib/index.js（且 node_modules 仍被排除）', async () => {
+    const { entry } = makeBundleDir('bundle-zip')
+    const packager = createPackager()
+    const packed = await packager.pack(entry, path.join(root, 'bundle-out'))
+    const dest = path.join(root, 'bundle-dest')
+    await packager.unpack(packed.zipPath, dest, DEFAULT_SAFETY_GUARD)
+    expect(existsSync(path.join(dest, 'package.json'))).toBe(true)
+    expect(readFileSync(path.join(dest, 'lib', 'index.js'), 'utf8')).toContain('export const v = 1')
+    expect(existsSync(path.join(dest, 'node_modules'))).toBe(false)
+  })
+})
+
 describe('unpack safety', () => {
   it('rejects zip bomb when file exceeds guard limit', async () => {
     const packager = createPackager()

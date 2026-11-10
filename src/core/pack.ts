@@ -21,9 +21,12 @@ import {
 
 const META_FILE = '_meta.json'
 
-// ---------- 默认排除：bundle 依赖本体不上传（体积 + 跨平台二进制差异） ----------
+// ---------- 默认排除：只排除"不是包内容"的东西 ----------
+// 注意：lib/ 与 dist/ 是 bundle 的运行时代码，**必须**纳入 hash 与 zip。
+// 早期版本把它们排除，导致 npm 安装的插件（代码在 lib/）改了内容 hash 也不变、
+// 上传的 zip 里没有可执行代码 —— 「同步插件」这条主打能力会是坏的。
 
-const EXCLUDE_DIRS = new Set(['node_modules', '.git', 'logs', 'cache', '.cache', 'dist', 'lib'])
+const EXCLUDE_DIRS = new Set(['node_modules', '.git', 'logs', 'cache', '.cache'])
 const EXCLUDE_FILES = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini', 'npm-debug.log'])
 
 function shouldIncludeRel(relPath: string): boolean {
@@ -63,6 +66,11 @@ export async function hashDirectory(entry: Pick<LocalEntry, 'kind' | 'name' | 'v
     h.update('\0')
   }
   return h.digest('hex')
+}
+
+/** 列出会被纳入内容 hash 的相对路径（scan 的 hash 缓存指纹计算复用） */
+export async function collectHashableFiles(dir: string): Promise<string[]> {
+  return collectFiles(dir)
 }
 
 async function collectFiles(dir: string, base = '', out: string[] = []): Promise<string[]> {

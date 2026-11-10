@@ -13,6 +13,7 @@ import { createClient, AuthType, type Headers, type LockResponse, type WebDAVCli
 import {
   ManifestConflictError,
   type LockHandle,
+  type RemoteDirItem,
   type ServerCapabilities,
   type TestConnectionResult,
   type WebDavClient,
@@ -287,6 +288,29 @@ class WebDavClientImpl implements WebDavClient {
     await this.client.deleteFile(this.abs(rel)).catch(() => undefined)
   }
 
+  /** 列出远端目录（prune 清理回收站用）；目录不存在 / 服务端报错返回空数组 */
+  async listDir(rel: string): Promise<RemoteDirItem[]> {
+    try {
+      const items = (await this.client.getDirectoryContents(this.abs(rel))) as unknown as Array<{
+        basename?: string
+        type?: string
+        size?: number
+        lastmod?: string
+      }>
+      if (!Array.isArray(items)) return []
+      return items
+        .filter((i) => typeof i?.basename === 'string' && i.basename !== '.' && i.basename !== '..')
+        .map((i) => ({
+          name: i.basename as string,
+          type: i.type === 'directory' ? ('directory' as const) : ('file' as const),
+          size: typeof i.size === 'number' ? i.size : 0,
+          mtime: typeof i.lastmod === 'string' ? i.lastmod : null,
+        }))
+    } catch {
+      return []
+    }
+  }
+
   async move(rel: string, destPath: string): Promise<void> {
     await this.client.moveFile(this.abs(rel), this.abs(destPath))
   }
@@ -294,6 +318,9 @@ class WebDavClientImpl implements WebDavClient {
   // ---------- locks ----------
 
   async acquireLock(machineId: string, ttlMs: number): Promise<LockHandle | null> {
+    // 锁文件在 locks/ 子目录里：必须先建集合，否则「PUT 到不存在的集合」
+    // 在部分服务端（实测 muhuix DAV）直接 403 —— 那一刻整个同步会在取锁阶段就失败。
+    await this.ensureDir('locks').catch(() => undefined)
     // 优先原生 LOCK
     const caps = await this.probeCapabilities()
     if (caps.supportsLock) {

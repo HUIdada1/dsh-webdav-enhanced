@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "WebDAV sync",
-    "description": "Keep plugins, skills and model/provider config in sync across machines through one WebDAV server.",
+    "description": "Sync plugins, skills and model configs across machines through one WebDAV server, with automatic merge and dedup, live progress and structured logs.",
     "detail": "docs/plugin-detail.en.md"
   }
 }

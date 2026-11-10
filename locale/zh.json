@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "WebDAV 同步",
-    "description": "用一台 WebDAV 服务器在机器之间同步插件、技能与模型/提供方配置。",
+    "description": "用一台 WebDAV 服务器把插件、技能与模型配置同步到所有机器：自动合并、内容去重，带实时进度与结构化日志。",
     "detail": "docs/plugin-detail.zh.md"
   }
 }
